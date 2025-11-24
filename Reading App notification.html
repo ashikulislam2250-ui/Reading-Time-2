@@ -1,0 +1,4084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reading Time Tracker Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.4/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #2575fc;
+            --secondary: #6a11cb;
+            --success: #28a745;
+            --warning: #ffc107;
+            --danger: #dc3545;
+            --dark: #343a40;
+            --light: #f8f9fa;
+            --sidebar-width: 280px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar Styles */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+            color: white;
+            padding: 20px;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+        
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .sidebar-header h2 {
+            font-size: 1.5rem;
+        }
+        
+        .toggle-sidebar {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        
+        .nav-section {
+            margin-bottom: 25px;
+        }
+        
+        .nav-section h3 {
+            font-size: 1rem;
+            margin-bottom: 15px;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .nav-item i {
+            margin-right: 12px;
+            font-size: 1.1rem;
+            width: 20px;
+            text-align: center;
+        }
+        
+        /* Main Content Styles */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            padding: 20px;
+            transition: margin-left 0.3s ease;
+        }
+        
+        .main-content.expanded {
+            margin-left: 0;
+        }
+        
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 12px;
+        }
+        
+        .page-title {
+            font-size: 1.8rem;
+            color: var(--dark);
+            margin-bottom: 5px;
+        }
+        
+        .page-subtitle {
+            color: #666;
+            font-size: 1rem;
+        }
+        
+        /* Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            padding: 20px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .card-title {
+            font-size: 1.2rem;
+            color: var(--dark);
+        }
+        
+        .card-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+        
+        .btn-warning {
+            background: var(--warning);
+            color: var(--dark);
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+        }
+        
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .stat-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--dark);
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        /* Charts */
+        .chart-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .chart-title {
+            font-size: 1.3rem;
+            color: var(--dark);
+        }
+        
+        .chart-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+        }
+        
+        /* Forms */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border 0.3s ease;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+        
+        /* Tables */
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            padding: 20px;
+            margin-bottom: 30px;
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        tr:hover {
+            background-color: #f5f7fa;
+        }
+        
+        /* Authentication */
+        .auth-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+        }
+        
+        .auth-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 450px;
+        }
+        
+        .auth-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .auth-title {
+            font-size: 1.8rem;
+            color: var(--dark);
+            margin-bottom: 10px;
+        }
+        
+        .auth-subtitle {
+            color: #666;
+        }
+        
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .auth-tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: #f0f0f0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .auth-tab.active {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .auth-form {
+            display: none;
+        }
+        
+        .auth-form.active {
+            display: block;
+        }
+        
+        /* Progress Bars */
+        .progress-bar {
+            height: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 5px;
+            transition: width 0.5s ease;
+        }
+        
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 5px;
+        }
+        
+        .badge-primary {
+            background: rgba(37, 117, 252, 0.1);
+            color: var(--primary);
+        }
+        
+        .badge-success {
+            background: rgba(40, 167, 69, 0.1);
+            color: var(--success);
+        }
+        
+        .badge-warning {
+            background: rgba(255, 193, 7, 0.1);
+            color: var(--warning);
+        }
+        
+        .badge-danger {
+            background: rgba(220, 53, 69, 0.1);
+            color: var(--danger);
+        }
+        
+        /* Reading Session Timer */
+        .timer-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .timer-display {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin: 20px 0;
+        }
+        
+        .timer-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Utility Classes */
+        .hidden {
+            display: none;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .mt-10 {
+            margin-top: 10px;
+        }
+        
+        .mt-20 {
+            margin-top: 20px;
+        }
+        
+        .mb-10 {
+            margin-bottom: 10px;
+        }
+        
+        .mb-20 {
+            margin-bottom: 20px;
+        }
+        
+        .p-20 {
+            padding: 20px;
+        }
+        
+        /* Message Styles */
+        .message {
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+        
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        
+        /* Dark Mode */
+        body.dark-mode {
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode .card,
+        body.dark-mode .stat-card,
+        body.dark-mode .chart-container,
+        body.dark-mode .table-container,
+        body.dark-mode .timer-container {
+            background: #2d2d2d;
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode .card-title,
+        body.dark-mode .chart-title,
+        body.dark-mode .page-title {
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode input,
+        body.dark-mode select,
+        body.dark-mode textarea {
+            background: #3d3d3d;
+            border-color: #555;
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode table th {
+            background: #3d3d3d;
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode table tr:hover {
+            background: #3d3d3d;
+        }
+        
+        /* Password input with eye icon */
+        .password-container {
+            position: relative;
+        }
+        
+        .toggle-password {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #666;
+        }
+        
+        /* Filter buttons */
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .filter-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        /* Date range filter */
+        .date-range-filter {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        
+        /* Goal setting form */
+        .goal-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .goal-form input {
+            flex: 1;
+        }
+        
+        /* Session list */
+        .session-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .session-item:last-child {
+            border-bottom: none;
+        }
+        
+        .session-info {
+            flex: 1;
+        }
+        
+        .session-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* Profile section */
+        .profile-section {
+            margin-bottom: 30px;
+        }
+        
+        .profile-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        /* Book cards */
+        .books-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .book-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            padding: 20px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .book-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .book-cover {
+            width: 100%;
+            height: 200px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        
+        .book-cover img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: cover;
+        }
+        
+        .book-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .book-author {
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .book-progress {
+            margin-bottom: 15px;
+        }
+        
+        .book-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            color: var(--dark);
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+        }
+        
+        /* Enhanced AI Assistant Styles */
+        .ai-assistant-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        .ai-assistant-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .ai-assistant-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        .ai-assistant-btn.pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(37, 117, 252, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(37, 117, 252, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(37, 117, 252, 0); }
+        }
+        
+        .ai-assistant-panel {
+            position: absolute;
+            bottom: 70px;
+            right: 0;
+            width: 380px;
+            height: 500px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            display: none;
+            flex-direction: column;
+        }
+        
+        .ai-assistant-panel.active {
+            display: flex;
+        }
+        
+        .ai-header {
+            background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .ai-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .ai-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        
+        .ai-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background: #f9f9f9;
+        }
+        
+        .ai-message {
+            margin-bottom: 15px;
+            display: flex;
+        }
+        
+        .ai-message.user {
+            justify-content: flex-end;
+        }
+        
+        .ai-message-bubble {
+            max-width: 80%;
+            padding: 10px 15px;
+            border-radius: 18px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        
+        .ai-message.ai .ai-message-bubble {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 5px;
+        }
+        
+        .ai-message.user .ai-message-bubble {
+            background: var(--primary);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .ai-typing-indicator {
+            display: none;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+        }
+        
+        .ai-typing-indicator.active {
+            display: flex;
+        }
+        
+        .ai-typing-dots {
+            display: flex;
+            align-items: center;
+        }
+        
+        .ai-typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #999;
+            margin: 0 2px;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        
+        .ai-typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .ai-typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+        
+        .ai-input-container {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .ai-input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            outline: none;
+        }
+        
+        .ai-send {
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            margin-left: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .ai-suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 10px 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .ai-suggestion {
+            background: #f0f0f0;
+            border: none;
+            border-radius: 15px;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .ai-suggestion:hover {
+            background: #e0e0e0;
+        }
+        
+        .ai-message-time {
+            font-size: 0.7rem;
+            color: #999;
+            margin-top: 5px;
+            text-align: right;
+        }
+        
+        .ai-message.ai .ai-message-time {
+            text-align: left;
+        }
+        
+        /* Enhanced notification styles */
+        .notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 2000;
+            max-width: 350px;
+        }
+        
+        .notification {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: flex-start;
+            animation: slideIn 0.3s ease;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .notification-icon {
+            margin-right: 10px;
+            color: var(--primary);
+            font-size: 1.2rem;
+        }
+        
+        .notification-content {
+            flex: 1;
+        }
+        
+        .notification-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .notification-message {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .notification-close {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .ai-assistant-panel {
+                width: 300px;
+                right: -20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Authentication Section -->
+    <div class="auth-container" id="authSection">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1 class="auth-title">Reading Tracker Pro</h1>
+                <p class="auth-subtitle">Track and analyze your reading journey</p>
+            </div>
+            
+            <div class="auth-tabs">
+                <div class="auth-tab active" id="loginTab">Login</div>
+                <div class="auth-tab" id="registerTab">Create Account</div>
+            </div>
+            
+            <div id="message" class="message hidden"></div>
+            
+            <!-- Login Form -->
+            <div class="auth-form active" id="loginForm">
+                <div class="form-group">
+                    <label for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" placeholder="Enter your username">
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <div class="password-container">
+                        <input type="password" id="loginPassword" placeholder="Enter your password">
+                        <span class="toggle-password" id="toggleLoginPassword">
+                            <i class="fas fa-eye"></i>
+                        </span>
+                    </div>
+                </div>
+                <div class="form-group" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <input type="checkbox" id="rememberMe">
+                        <label for="rememberMe" style="display: inline;">Remember me</label>
+                    </div>
+                    <a href="#" id="forgotPasswordLink" style="color: var(--primary); text-decoration: none;">Forgot Password?</a>
+                </div>
+                <button class="btn btn-primary" id="loginBtn" style="width: 100%;">Login</button>
+            </div>
+            
+            <!-- Register Form -->
+            <div class="auth-form" id="registerForm">
+                <div class="form-group">
+                    <label for="registerUsername">Username</label>
+                    <input type="text" id="registerUsername" placeholder="Choose a username">
+                </div>
+                <div class="form-group">
+                    <label for="registerEmail">Email</label>
+                    <input type="email" id="registerEmail" placeholder="Enter your email">
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Password</label>
+                    <div class="password-container">
+                        <input type="password" id="registerPassword" placeholder="Create a password">
+                        <span class="toggle-password" id="toggleRegisterPassword">
+                            <i class="fas fa-eye"></i>
+                        </span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <div class="password-container">
+                        <input type="password" id="confirmPassword" placeholder="Confirm your password">
+                        <span class="toggle-password" id="toggleConfirmPassword">
+                            <i class="fas fa-eye"></i>
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <h3 style="margin-bottom: 15px;">Security Questions</h3>
+                    <div class="form-group">
+                        <label for="securityQuestion1">What is your mother's maiden name?</label>
+                        <input type="text" id="securityQuestion1" placeholder="Your answer">
+                    </div>
+                    <div class="form-group">
+                        <label for="securityQuestion2">What was the name of your first pet?</label>
+                        <input type="text" id="securityQuestion2" placeholder="Your answer">
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" id="registerBtn" style="width: 100%;">Create Account</button>
+            </div>
+            
+            <!-- Forgot Password Form -->
+            <div class="auth-form" id="forgotPasswordForm">
+                <div class="form-group">
+                    <label for="recoveryUsername">Username</label>
+                    <input type="text" id="recoveryUsername" placeholder="Enter your username">
+                </div>
+                <div class="form-group">
+                    <label for="recoveryEmail">Email</label>
+                    <input type="email" id="recoveryEmail" placeholder="Enter your email">
+                </div>
+                
+                <div class="form-group">
+                    <h3 style="margin-bottom: 15px;">Answer Security Questions</h3>
+                    <div class="form-group">
+                        <label for="recoveryQuestion1">What is your mother's maiden name?</label>
+                        <input type="text" id="recoveryQuestion1" placeholder="Your answer">
+                    </div>
+                    <div class="form-group">
+                        <label for="recoveryQuestion2">What was the name of your first pet?</label>
+                        <input type="text" id="recoveryQuestion2" placeholder="Your answer">
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" id="recoverPasswordBtn" style="width: 100%;">Recover Password</button>
+                <div style="text-align: center; margin-top: 15px;">
+                    <a href="#" id="backToLogin" style="color: var(--primary); text-decoration: none;">Back to Login</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main App -->
+    <div class="app-container hidden" id="appContainer">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>Reading Tracker</h2>
+                <button class="toggle-sidebar" id="toggleSidebar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="nav-section">
+                <h3>Dashboard</h3>
+                <div class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Overview</span>
+                </div>
+                <div class="nav-item" data-page="analytics">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Analytics</span>
+                </div>
+                <div class="nav-item" data-page="goals">
+                    <i class="fas fa-bullseye"></i>
+                    <span>Goals & Challenges</span>
+                </div>
+            </div>
+            
+            <div class="nav-section">
+                <h3>Reading</h3>
+                <div class="nav-item" data-page="timer">
+                    <i class="fas fa-play-circle"></i>
+                    <span>Reading Timer</span>
+                </div>
+                <div class="nav-item" data-page="sessions">
+                    <i class="fas fa-history"></i>
+                    <span>Reading Sessions</span>
+                </div>
+                <div class="nav-item" data-page="books">
+                    <i class="fas fa-book"></i>
+                    <span>My Books</span>
+                </div>
+                <div class="nav-item" data-page="notes">
+                    <i class="fas fa-sticky-note"></i>
+                    <span>Notes & Highlights</span>
+                </div>
+            </div>
+            
+            <div class="nav-section">
+                <h3>Community</h3>
+                <div class="nav-item" data-page="achievements">
+                    <i class="fas fa-trophy"></i>
+                    <span>Achievements</span>
+                </div>
+                <div class="nav-item" data-page="leaderboard">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Leaderboard</span>
+                </div>
+            </div>
+            
+            <div class="nav-section">
+                <h3>Settings</h3>
+                <div class="nav-item" data-page="profile">
+                    <i class="fas fa-user"></i>
+                    <span>Profile</span>
+                </div>
+                <div class="nav-item" data-page="preferences">
+                    <i class="fas fa-cog"></i>
+                    <span>Preferences</span>
+                </div>
+            </div>
+            
+            <div class="nav-section">
+                <button class="btn btn-outline" id="toggleDarkMode" style="width: 100%;">
+                    <i class="fas fa-moon"></i> Dark Mode
+                </button>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content" id="mainContent">
+            <div class="top-bar">
+                <div>
+                    <button class="btn btn-outline" id="mobileMenuToggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">U</div>
+                    <div>
+                        <div class="page-title" id="pageTitle">Dashboard</div>
+                        <div class="page-subtitle" id="pageSubtitle">Welcome back!</div>
+                    </div>
+                </div>
+                <div>
+                    <button class="btn btn-outline" id="logoutBtn">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Dashboard Page -->
+            <div class="page-content" id="dashboardPage">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-fire"></i>
+                        </div>
+                        <div class="stat-value" id="currentStreak">0</div>
+                        <div class="stat-label">Current Streak</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-value" id="todayReading">0m</div>
+                        <div class="stat-label">Today's Reading</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-bullseye"></i>
+                        </div>
+                        <div class="stat-value" id="goalProgress">0%</div>
+                        <div class="stat-label">Daily Goal</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-trophy"></i>
+                        </div>
+                        <div class="stat-value" id="achievementsCount">0</div>
+                        <div class="stat-label">Achievements</div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Today's Reading Goal</div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="goalProgressBar" style="width: 0%; background: var(--success);"></div>
+                        </div>
+                        <div class="text-center mt-10">
+                            <span id="goalText">0/60 minutes</span>
+                        </div>
+                        <div class="text-center mt-20">
+                            <button class="btn btn-primary" id="quickStartBtn">
+                                <i class="fas fa-play"></i> Start Reading Session
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Reading Stats</div>
+                        </div>
+                        <div class="p-20">
+                            <p>Total Reading Time: <span id="totalReadingTime">0 hours</span></p>
+                            <p>Books Completed: <span id="booksCompleted">0</span></p>
+                            <p>Longest Session: <span id="longestSession">0 minutes</span></p>
+                            <p>Average Session: <span id="averageSession">0 minutes</span></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <div class="chart-title">Reading Activity (Last 7 Days)</div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="dashboardChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Timer Page -->
+            <div class="page-content hidden" id="timerPage">
+                <div class="timer-container">
+                    <h2>Reading Session Timer</h2>
+                    <div class="timer-display" id="timerDisplay">00:00:00</div>
+                    <div class="timer-controls">
+                        <button class="btn btn-success" id="startBtn">
+                            <i class="fas fa-play"></i> Start
+                        </button>
+                        <button class="btn btn-danger" id="stopBtn" disabled>
+                            <i class="fas fa-stop"></i> Stop
+                        </button>
+                        <button class="btn btn-warning" id="resetBtn">
+                            <i class="fas fa-redo"></i> Reset
+                        </button>
+                    </div>
+                    
+                    <div class="form-group mt-20">
+                        <label for="sessionBook">Select Book (Optional)</label>
+                        <select id="sessionBook">
+                            <option value="">No book selected</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="sessionCategory">Category</label>
+                        <select id="sessionCategory">
+                            <option value="fiction">Fiction</option>
+                            <option value="non-fiction">Non-Fiction</option>
+                            <option value="academic">Academic</option>
+                            <option value="professional">Professional</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="sessionNotes">Session Notes (Optional)</label>
+                        <textarea id="sessionNotes" rows="3" placeholder="Add notes about this reading session..."></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Analytics Page -->
+            <div class="page-content hidden" id="analyticsPage">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Advanced Analytics</div>
+                        <div class="card-actions">
+                            <button class="btn btn-outline" id="exportCSVBtn">
+                                <i class="fas fa-file-csv"></i> Export CSV
+                            </button>
+                            <button class="btn btn-outline" id="exportJSONBtn">
+                                <i class="fas fa-file-code"></i> Export JSON
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-20">
+                        <div class="filter-buttons">
+                            <button class="filter-btn active" data-filter="daily">Daily</button>
+                            <button class="filter-btn" data-filter="weekly">Weekly</button>
+                            <button class="filter-btn" data-filter="monthly">Monthly</button>
+                            <button class="filter-btn" data-filter="timeOfDay">Time of Day</button>
+                        </div>
+                        
+                        <div class="filter-buttons">
+                            <button class="filter-btn active" data-period="today">Today</button>
+                            <button class="filter-btn" data-period="week">This Week</button>
+                            <button class="filter-btn" data-period="month">This Month</button>
+                            <button class="filter-btn" data-period="all">All Time</button>
+                        </div>
+                        
+                        <div class="date-range-filter">
+                            <div class="form-group" style="flex: 1;">
+                                <label for="startDate">Start Date</label>
+                                <input type="date" id="startDate">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="endDate">End Date</label>
+                                <input type="date" id="endDate">
+                            </div>
+                            <div class="form-group" style="align-self: flex-end;">
+                                <button class="btn btn-primary" id="applyDateRange">Apply</button>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-container">
+                            <div class="chart-wrapper">
+                                <canvas id="analyticsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Goals Page -->
+            <div class="page-content hidden" id="goalsPage">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Goals & Challenges</div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary" id="aiChallengeBtn">
+                                <i class="fas fa-robot"></i> Get AI Challenge
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-20">
+                        <h3>Set Daily Reading Goal</h3>
+                        <div class="goal-form">
+                            <input type="number" id="dailyGoalInput" placeholder="Enter daily goal in minutes" min="1" value="60">
+                            <button class="btn btn-primary" id="setGoalBtn">Set Goal</button>
+                        </div>
+                        
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="dailyGoalProgressBar" style="width: 0%; background: var(--success);"></div>
+                        </div>
+                        <div class="text-center mt-10">
+                            <span id="dailyGoalText">0/60 minutes</span>
+                        </div>
+                        
+                        <div class="mt-20">
+                            <h3>AI-Generated Challenges</h3>
+                            <div id="aiChallengesContainer" class="challenges-container">
+                                <!-- AI challenges will be populated here -->
+                            </div>
+                            
+                            <div id="noChallengesMessage" class="text-center p-20" style="display: none;">
+                                <h3>No challenges yet</h3>
+                                <p>Click "Get AI Challenge" to receive personalized reading challenges based on your reading habits.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sessions Page -->
+            <div class="page-content hidden" id="sessionsPage">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Reading Sessions</div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary" id="addSessionBtn">Add Session</button>
+                        </div>
+                    </div>
+                    <div class="p-20">
+                        <div class="filter-buttons">
+                            <button class="filter-btn active" data-session-filter="all">All</button>
+                            <button class="filter-btn" data-session-filter="today">Today</button>
+                            <button class="filter-btn" data-session-filter="week">This Week</button>
+                            <button class="filter-btn" data-session-filter="month">This Month</button>
+                        </div>
+                        
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Duration</th>
+                                        <th>Category</th>
+                                        <th>Book</th>
+                                        <th>Notes</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sessionsTableBody">
+                                    <!-- Sessions will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Books Page -->
+            <div class="page-content hidden" id="booksPage">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">My Books</div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary" id="addBookBtn">Add Book</button>
+                        </div>
+                    </div>
+                    <div class="p-20">
+                        <div class="filter-buttons">
+                            <button class="filter-btn active" data-book-filter="all">All Books</button>
+                            <button class="filter-btn" data-book-filter="reading">Currently Reading</button>
+                            <button class="filter-btn" data-book-filter="completed">Completed</button>
+                            <button class="filter-btn" data-book-filter="want-to-read">Want to Read</button>
+                        </div>
+                        
+                        <div class="books-grid" id="booksGrid">
+                            <!-- Books will be populated here -->
+                        </div>
+                        
+                        <div id="noBooksMessage" class="text-center p-20" style="display: none;">
+                            <h3>No books added yet</h3>
+                            <p>Start by adding your first book to track your reading progress.</p>
+                            <button class="btn btn-primary mt-10" id="addFirstBookBtn">Add Your First Book</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Profile Page -->
+            <div class="page-content hidden" id="profilePage">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Profile</div>
+                    </div>
+                    <div class="p-20">
+                        <div class="profile-section">
+                            <h3>Personal Information</h3>
+                            <div class="profile-info">
+                                <div class="form-group">
+                                    <label for="profileUsername">Username</label>
+                                    <input type="text" id="profileUsername" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label for="profileEmail">Email</label>
+                                    <input type="email" id="profileEmail">
+                                </div>
+                                <div class="form-group">
+                                    <label for="profileFirstName">First Name</label>
+                                    <input type="text" id="profileFirstName">
+                                </div>
+                                <div class="form-group">
+                                    <label for="profileLastName">Last Name</label>
+                                    <input type="text" id="profileLastName">
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" id="updateProfileBtn">Update Profile</button>
+                        </div>
+                        
+                        <div class="profile-section">
+                            <h3>Change Password</h3>
+                            <div class="form-group">
+                                <label for="currentPassword">Current Password</label>
+                                <div class="password-container">
+                                    <input type="password" id="currentPassword" placeholder="Enter current password">
+                                    <span class="toggle-password" id="toggleCurrentPassword">
+                                        <i class="fas fa-eye"></i>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="newPassword">New Password</label>
+                                <div class="password-container">
+                                    <input type="password" id="newPassword" placeholder="Enter new password">
+                                    <span class="toggle-password" id="toggleNewPassword">
+                                        <i class="fas fa-eye"></i>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="confirmNewPassword">Confirm New Password</label>
+                                <div class="password-container">
+                                    <input type="password" id="confirmNewPassword" placeholder="Confirm new password">
+                                    <span class="toggle-password" id="toggleConfirmNewPassword">
+                                        <i class="fas fa-eye"></i>
+                                    </span>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" id="changePasswordBtn">Change Password</button>
+                        </div>
+                        
+                        <div class="profile-section">
+                            <h3>Account Statistics</h3>
+                            <div class="profile-info">
+                                <div class="form-group">
+                                    <label>Member Since</label>
+                                    <input type="text" id="memberSince" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label>Total Reading Time</label>
+                                    <input type="text" id="profileTotalReadingTime" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label>Total Sessions</label>
+                                    <input type="text" id="profileTotalSessions" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label>Books Completed</label>
+                                    <input type="text" id="profileBooksCompleted" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Additional pages would be implemented here -->
+            <div class="page-content hidden" id="achievementsPage">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Achievements</div>
+                    </div>
+                    <div class="p-20">
+                        <p>Track your reading achievements and unlock new milestones.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Book Modal -->
+    <div class="modal" id="addBookModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Add New Book</h2>
+                <button class="close-modal" id="closeBookModal">&times;</button>
+            </div>
+            <div class="form-group">
+                <label for="bookTitle">Book Title</label>
+                <input type="text" id="bookTitle" placeholder="Enter book title">
+            </div>
+            <div class="form-group">
+                <label for="bookAuthor">Author</label>
+                <input type="text" id="bookAuthor" placeholder="Enter author name">
+            </div>
+            <div class="form-group">
+                <label for="bookGenre">Genre</label>
+                <select id="bookGenre">
+                    <option value="fiction">Fiction</option>
+                    <option value="non-fiction">Non-Fiction</option>
+                    <option value="science-fiction">Science Fiction</option>
+                    <option value="fantasy">Fantasy</option>
+                    <option value="mystery">Mystery</option>
+                    <option value="thriller">Thriller</option>
+                    <option value="romance">Romance</option>
+                    <option value="biography">Biography</option>
+                    <option value="history">History</option>
+                    <option value="self-help">Self-Help</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="bookStatus">Status</label>
+                <select id="bookStatus">
+                    <option value="want-to-read">Want to Read</option>
+                    <option value="reading">Currently Reading</option>
+                    <option value="completed">Completed</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="bookPages">Total Pages</label>
+                <input type="number" id="bookPages" placeholder="Enter total pages" min="1">
+            </div>
+            <div class="form-group">
+                <label for="currentPage">Current Page</label>
+                <input type="number" id="currentPage" placeholder="Enter current page" min="0">
+            </div>
+            <div class="form-group">
+                <label for="bookNotes">Notes</label>
+                <textarea id="bookNotes" rows="3" placeholder="Add notes about this book..."></textarea>
+            </div>
+            <div class="form-group">
+                <button class="btn btn-primary" id="saveBookBtn" style="width: 100%;">Save Book</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced AI Assistant -->
+    <div class="ai-assistant-container">
+        <div class="ai-assistant-btn" id="aiAssistantBtn">
+            <i class="fas fa-robot"></i>
+        </div>
+        <div class="ai-assistant-panel" id="aiAssistantPanel">
+            <div class="ai-header">
+                <div class="ai-title">Reading Assistant</div>
+                <button class="ai-close" id="aiCloseBtn">&times;</button>
+            </div>
+            <div class="ai-messages" id="aiMessages">
+                <!-- Messages will be added here -->
+            </div>
+            <div class="ai-typing-indicator" id="aiTypingIndicator">
+                <div class="ai-typing-dots">
+                    <div class="ai-typing-dot"></div>
+                    <div class="ai-typing-dot"></div>
+                    <div class="ai-typing-dot"></div>
+                </div>
+            </div>
+            <div class="ai-suggestions" id="aiSuggestions">
+                <button class="ai-suggestion" data-question="How am I doing with my reading goal?">Goal Progress</button>
+                <button class="ai-suggestion" data-question="Suggest a book for me">Book Suggestions</button>
+                <button class="ai-suggestion" data-question="Give me a reading challenge">New Challenge</button>
+            </div>
+            <div class="ai-input-container">
+                <input type="text" class="ai-input" id="aiInput" placeholder="Ask me anything about your reading...">
+                <button class="ai-send" id="aiSendBtn">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications Container -->
+    <div class="notification-container" id="notificationContainer">
+        <!-- Notifications will be added here -->
+    </div>
+
+    <script>
+        // App state
+        let isReading = false;
+        let startTime = null;
+        let timerInterval = null;
+        let elapsedTime = 0;
+        let sessions = [];
+        let books = [];
+        let currentUser = null;
+        let currentPage = 'dashboard';
+        let darkMode = false;
+        let analyticsFilter = 'daily';
+        let analyticsPeriod = 'today';
+        let bookFilter = 'all';
+        
+        // Enhanced AI Assistant state
+        let aiAssistantActive = false;
+        let aiConversationHistory = [];
+        let aiContext = {
+            lastGoalCheck: null,
+            lastChallengeDate: null,
+            readingPreferences: {}
+        };
+        let lastNotificationTime = 0;
+        let readingStreak = 0;
+        let lastReadingDate = null;
+        let aiChallenges = [];
+        
+        // Enhanced knowledge base for the AI assistant
+        const aiKnowledgeBase = {
+            readingTips: [
+                "Try setting a specific time each day for reading to build a consistent habit.",
+                "Keep a book with you at all times - you'll be surprised how much reading you can do in small pockets of time.",
+                "Don't be afraid to abandon a book if you're not enjoying it after 50 pages. Life's too short for books you don't love!",
+                "Join a book club or find a reading buddy to discuss books with - it enhances the experience.",
+                "Try alternating between fiction and non-fiction to keep your reading varied and interesting.",
+                "Take notes or highlight passages that resonate with you - it helps with retention and reflection.",
+                "Set realistic reading goals. Even 15-20 minutes a day adds up to significant reading over time.",
+                "Experiment with different formats - audiobooks can be great for multitasking or when your eyes need a break.",
+                "Create a comfortable reading environment with good lighting and minimal distractions.",
+                "Don't compare your reading pace to others. Everyone reads at their own speed!"
+            ],
+            
+            bookRecommendations: {
+                fiction: [
+                    {title: "The Night Circus", author: "Erin Morgenstern", description: "A magical competition between two illusionists in a mysterious circus."},
+                    {title: "Project Hail Mary", author: "Andy Weir", description: "A lone astronaut must save Earth from an existential threat."},
+                    {title: "The Seven Husbands of Evelyn Hugo", author: "Taylor Jenkins Reid", description: "A Hollywood icon reveals her secrets to an unknown journalist."},
+                    {title: "Pachinko", author: "Min Jin Lee", description: "A multi-generational saga of a Korean family in Japan."},
+                    {title: "The Invisible Life of Addie LaRue", author: "V.E. Schwab", description: "A woman makes a deal to live forever but is forgotten by everyone she meets."}
+                ],
+                nonFiction: [
+                    {title: "Atomic Habits", author: "James Clear", description: "A guide to building good habits and breaking bad ones."},
+                    {title: "Sapiens", author: "Yuval Noah Harari", description: "A brief history of humankind and how we came to dominate the planet."},
+                    {title: "Educated", author: "Tara Westover", description: "A memoir about a woman who leaves her survivalist family to pursue education."},
+                    {title: "Thinking, Fast and Slow", author: "Daniel Kahneman", description: "Explores the two systems that drive how we think."},
+                    {title: "The Body Keeps the Score", author: "Bessel van der Kolk", description: "A groundbreaking exploration of trauma and recovery."}
+                ],
+                selfHelp: [
+                    {title: "The Subtle Art of Not Giving a F*ck", author: "Mark Manson", description: "A counterintuitive approach to living a good life."},
+                    {title: "Daring Greatly", author: "Brené Brown", description: "How the courage to be vulnerable transforms how we live, love, and lead."},
+                    {title: "The Power of Now", author: "Eckhart Tolle", description: "A guide to spiritual enlightenment through living in the present moment."},
+                    {title: "Mindset", author: "Carol S. Dweck", description: "How we can learn to fulfill our potential by changing our mindset."},
+                    {title: "The 5 AM Club", author: "Robin Sharma", description: "Own your morning, elevate your life through a morning routine."}
+                ],
+                classics: [
+                    {title: "To Kill a Mockingbird", author: "Harper Lee", description: "A timeless story of racial injustice and childhood innocence."},
+                    {title: "1984", author: "George Orwell", description: "A dystopian novel about totalitarianism and surveillance."},
+                    {title: "Pride and Prejudice", author: "Jane Austen", description: "A romantic novel about manners, upbringing, and morality."},
+                    {title: "The Great Gatsby", author: "F. Scott Fitzgerald", description: "A critique of the American Dream during the Jazz Age."},
+                    {title: "One Hundred Years of Solitude", author: "Gabriel García Márquez", description: "A magical realist multi-generational saga."}
+                ]
+            },
+            
+            readingChallenges: [
+                {
+                    title: "Genre Explorer",
+                    description: "Read one book from five different genres this month.",
+                    duration: 30,
+                    difficulty: "medium"
+                },
+                {
+                    title: "Page Turner",
+                    description: "Read 100 pages in a single day.",
+                    duration: 1,
+                    difficulty: "easy"
+                },
+                {
+                    title: "Weekend Warrior",
+                    description: "Read for at least 2 hours over the weekend.",
+                    duration: 2,
+                    difficulty: "easy"
+                },
+                {
+                    title: "Speed Reader",
+                    description: "Finish a book in 3 days or less.",
+                    duration: 3,
+                    difficulty: "medium"
+                },
+                {
+                    title: "Diverse Voices",
+                    description: "Read a book by an author from a different cultural background than your own.",
+                    duration: 14,
+                    difficulty: "easy"
+                },
+                {
+                    title: "Non-Fiction November",
+                    description: "Read only non-fiction books for an entire month.",
+                    duration: 30,
+                    difficulty: "hard"
+                }
+            ],
+            
+            motivationalQuotes: [
+                "The more that you read, the more things you will know. The more that you learn, the more places you'll go. - Dr. Seuss",
+                "A reader lives a thousand lives before he dies. The man who never reads lives only one. - George R.R. Martin",
+                "Reading is to the mind what exercise is to the body. - Joseph Addison",
+                "There is no friend as loyal as a book. - Ernest Hemingway",
+                "Books are a uniquely portable magic. - Stephen King",
+                "Once you learn to read, you will be forever free. - Frederick Douglass",
+                "I have always imagined that Paradise will be a kind of library. - Jorge Luis Borges",
+                "So many books, so little time. - Frank Zappa",
+                "Reading brings us unknown friends. - Honoré de Balzac",
+                "That's the thing about books. They let you travel without moving your feet. - Jhumpa Lahiri"
+            ]
+        };
+        
+        // Challenge templates
+        const challengeTemplates = {
+            beginner: [
+                {
+                    title: "5-Day Reading Starter",
+                    description: "Read for at least 15 minutes every day for 5 consecutive days to build a consistent habit.",
+                    duration: 5,
+                    dailyRequirement: 15,
+                    difficulty: "easy",
+                    type: "consistency"
+                },
+                {
+                    title: "Book Explorer",
+                    description: "Read from 3 different genres this week to expand your reading horizons.",
+                    duration: 7,
+                    genreCount: 3,
+                    difficulty: "easy",
+                    type: "variety"
+                }
+            ],
+            intermediate: [
+                {
+                    title: "30-Minute Daily Challenge",
+                    description: "Read for at least 30 minutes every day for 7 days straight.",
+                    duration: 7,
+                    dailyRequirement: 30,
+                    difficulty: "medium",
+                    type: "endurance"
+                },
+                {
+                    title: "Weekend Reading Marathon",
+                    description: "Read for at least 2 hours over the weekend (Saturday and Sunday combined).",
+                    duration: 2,
+                    weekendRequirement: 120,
+                    difficulty: "medium",
+                    type: "intensity"
+                }
+            ],
+            advanced: [
+                {
+                    title: "1-Hour Daily Commitment",
+                    description: "Read for at least 60 minutes every day for 10 consecutive days.",
+                    duration: 10,
+                    dailyRequirement: 60,
+                    difficulty: "hard",
+                    type: "dedication"
+                },
+                {
+                    title: "Monthly Book Completion",
+                    description: "Finish reading one complete book within the next 30 days.",
+                    duration: 30,
+                    booksToComplete: 1,
+                    difficulty: "hard",
+                    type: "completion"
+                }
+            ]
+        };
+
+        // Server simulation for cross-device compatibility
+        const ServerSimulation = {
+            // Initialize server data if it doesn't exist
+            init() {
+                if (!localStorage.getItem('readingTrackerServer')) {
+                    localStorage.setItem('readingTrackerServer', JSON.stringify({
+                        users: {},
+                        userData: {}
+                    }));
+                }
+            },
+            
+            // Get server data
+            getServerData() {
+                return JSON.parse(localStorage.getItem('readingTrackerServer'));
+            },
+            
+            // Save server data
+            saveServerData(data) {
+                localStorage.setItem('readingTrackerServer', JSON.stringify(data));
+            },
+            
+            // Register a new user
+            registerUser(username, userData) {
+                const server = this.getServerData();
+                server.users[username] = userData;
+                this.saveServerData(server);
+            },
+            
+            // Get user by username
+            getUser(username) {
+                const server = this.getServerData();
+                return server.users[username] || null;
+            },
+            
+            // Get all users
+            getAllUsers() {
+                const server = this.getServerData();
+                return server.users;
+            },
+            
+            // Save user data
+            saveUserData(username, data) {
+                const server = this.getServerData();
+                server.userData[username] = data;
+                this.saveServerData(server);
+            },
+            
+            // Get user data
+            getUserData(username) {
+                const server = this.getServerData();
+                return server.userData[username] || null;
+            }
+        };
+        
+        // Initialize the app
+        function initApp() {
+            // Initialize server simulation
+            ServerSimulation.init();
+            
+            // Check if user is logged in
+            checkExistingLogin();
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Initialize enhanced AI assistant
+            initEnhancedAI();
+            
+            // Load initial data
+            if (currentUser) {
+                loadUserData();
+                updateUI();
+            }
+        }
+        
+        // Check if user is already logged in
+        function checkExistingLogin() {
+            const loggedInUser = localStorage.getItem('readingTrackerCurrentUser') || 
+                                sessionStorage.getItem('readingTrackerCurrentUser');
+            
+            if (loggedInUser) {
+                const user = ServerSimulation.getUser(loggedInUser);
+                if (user) {
+                    currentUser = user;
+                    showApp();
+                }
+            }
+        }
+        
+        // Show the main app (hide auth)
+        function showApp() {
+            document.getElementById('authSection').classList.add('hidden');
+            document.getElementById('appContainer').classList.remove('hidden');
+            document.getElementById('userAvatar').textContent = currentUser.username.charAt(0).toUpperCase();
+            
+            // Set the daily goal input to current value
+            if (currentUser.preferences && currentUser.preferences.dailyGoal) {
+                document.getElementById('dailyGoalInput').value = currentUser.preferences.dailyGoal;
+            }
+            
+            // Check for active timer session
+            checkActiveTimer();
+        }
+        
+        // Check if there's an active timer session that needs to be resumed
+        function checkActiveTimer() {
+            const activeTimer = localStorage.getItem(`activeTimer_${currentUser.username}`);
+            if (activeTimer) {
+                const timerData = JSON.parse(activeTimer);
+                if (timerData.isActive) {
+                    // Resume the timer
+                    isReading = true;
+                    startTime = new Date(timerData.startTime);
+                    elapsedTime = timerData.elapsedTime;
+                    
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('stopBtn').disabled = false;
+                    
+                    // Update timer display
+                    document.getElementById('timerDisplay').textContent = formatTime(elapsedTime);
+                    
+                    // Start the timer interval
+                    timerInterval = setInterval(updateTimer, 1000);
+                    
+                    // Show notification
+                    showNotification("Timer Resumed", "Your reading timer has been automatically resumed.");
+                }
+            }
+        }
+        
+        // Authentication functions
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = message;
+            messageDiv.className = `message ${type}`;
+            messageDiv.classList.remove('hidden');
+            
+            setTimeout(() => {
+                messageDiv.classList.add('hidden');
+            }, 5000);
+        }
+        
+        function switchAuthForm(form) {
+            // Update tabs
+            document.getElementById('loginTab').classList.remove('active');
+            document.getElementById('registerTab').classList.remove('active');
+            
+            // Hide all forms
+            document.getElementById('loginForm').classList.remove('active');
+            document.getElementById('registerForm').classList.remove('active');
+            document.getElementById('forgotPasswordForm').classList.remove('active');
+            
+            // Show selected form and activate tab
+            if (form === 'login') {
+                document.getElementById('loginForm').classList.add('active');
+                document.getElementById('loginTab').classList.add('active');
+            } else if (form === 'register') {
+                document.getElementById('registerForm').classList.add('active');
+                document.getElementById('registerTab').classList.add('active');
+            } else {
+                document.getElementById('forgotPasswordForm').classList.add('active');
+            }
+            
+            // Clear message
+            document.getElementById('message').classList.add('hidden');
+        }
+        
+        function register() {
+            const username = document.getElementById('registerUsername').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const securityAnswer1 = document.getElementById('securityQuestion1').value;
+            const securityAnswer2 = document.getElementById('securityQuestion2').value;
+            
+            // Validation
+            if (!username || !email || !password || !confirmPassword || !securityAnswer1 || !securityAnswer2) {
+                showMessage('Please fill in all fields', 'error');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showMessage('Passwords do not match', 'error');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showMessage('Password must be at least 6 characters', 'error');
+                return;
+            }
+            
+            // Check if user already exists
+            const users = ServerSimulation.getAllUsers();
+            if (users[username]) {
+                showMessage('Username already exists', 'error');
+                return;
+            }
+            
+            // Check if email already exists
+            const existingUser = Object.values(users).find(user => user.email === email);
+            if (existingUser) {
+                showMessage('Email already registered', 'error');
+                return;
+            }
+            
+            // Create new user
+            const newUser = {
+                username,
+                email,
+                password, // In a real app, this would be hashed
+                securityQuestions: {
+                    question1: securityAnswer1,
+                    question2: securityAnswer2
+                },
+                createdAt: new Date().toISOString(),
+                preferences: {
+                    dailyGoal: 60
+                }
+            };
+            
+            ServerSimulation.registerUser(username, newUser);
+            
+            // Create user data storage
+            const userData = {
+                sessions: [],
+                books: [],
+                achievements: [],
+                preferences: {
+                    dailyGoal: 60
+                }
+            };
+            
+            ServerSimulation.saveUserData(username, userData);
+            
+            showMessage('Account created successfully! Please login.', 'success');
+            switchAuthForm('login');
+            
+            // Clear form
+            document.getElementById('registerUsername').value = '';
+            document.getElementById('registerEmail').value = '';
+            document.getElementById('registerPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+            document.getElementById('securityQuestion1').value = '';
+            document.getElementById('securityQuestion2').value = '';
+        }
+        
+        function login() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!username || !password) {
+                showMessage('Please enter username and password', 'error');
+                return;
+            }
+            
+            const user = ServerSimulation.getUser(username);
+            
+            if (!user || user.password !== password) {
+                showMessage('Invalid username or password', 'error');
+                return;
+            }
+            
+            // Login successful
+            currentUser = user;
+            
+            // Save login state if "Remember me" is checked
+            const rememberMe = document.getElementById('rememberMe').checked;
+            if (rememberMe) {
+                localStorage.setItem('readingTrackerCurrentUser', username);
+            } else {
+                sessionStorage.setItem('readingTrackerCurrentUser', username);
+            }
+            
+            showApp();
+            loadUserData();
+            updateUI();
+            
+            // Clear form
+            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginPassword').value = '';
+        }
+        
+        function recoverPassword() {
+            const username = document.getElementById('recoveryUsername').value;
+            const email = document.getElementById('recoveryEmail').value;
+            const securityAnswer1 = document.getElementById('recoveryQuestion1').value;
+            const securityAnswer2 = document.getElementById('recoveryQuestion2').value;
+            
+            if (!username || !email || !securityAnswer1 || !securityAnswer2) {
+                showMessage('Please fill in all fields', 'error');
+                return;
+            }
+            
+            const user = ServerSimulation.getUser(username);
+            
+            if (!user) {
+                showMessage('Username not found', 'error');
+                return;
+            }
+            
+            if (user.email !== email) {
+                showMessage('Email does not match our records', 'error');
+                return;
+            }
+            
+            if (user.securityQuestions.question1 !== securityAnswer1 || 
+                user.securityQuestions.question2 !== securityAnswer2) {
+                showMessage('Security answers are incorrect', 'error');
+                return;
+            }
+            
+            // Show password to user
+            showMessage(`Your password is: ${user.password}`, 'success');
+            
+            // Clear form
+            document.getElementById('recoveryUsername').value = '';
+            document.getElementById('recoveryEmail').value = '';
+            document.getElementById('recoveryQuestion1').value = '';
+            document.getElementById('recoveryQuestion2').value = '';
+        }
+        
+        function logout() {
+            // Stop timer if active
+            if (isReading) {
+                stopReading();
+            }
+            
+            currentUser = null;
+            sessions = [];
+            books = [];
+            aiChallenges = [];
+            
+            // Clear login state
+            localStorage.removeItem('readingTrackerCurrentUser');
+            sessionStorage.removeItem('readingTrackerCurrentUser');
+            
+            // Switch to auth view
+            document.getElementById('authSection').classList.remove('hidden');
+            document.getElementById('appContainer').classList.add('hidden');
+            
+            // Reset timer
+            resetTimer();
+            
+            // Switch to login form
+            switchAuthForm('login');
+        }
+        
+        // Load user data from server simulation
+        function loadUserData() {
+            if (!currentUser) return;
+            
+            const userData = ServerSimulation.getUserData(currentUser.username);
+            if (userData) {
+                sessions = userData.sessions || [];
+                books = userData.books || [];
+                aiChallenges = userData.aiChallenges || [];
+                
+                // Load preferences
+                if (userData.preferences && userData.preferences.dailyGoal) {
+                    currentUser.preferences.dailyGoal = userData.preferences.dailyGoal;
+                }
+                
+                // Calculate reading streak
+                calculateReadingStreak();
+            }
+        }
+        
+        // Save user data to server simulation
+        function saveUserData() {
+            if (!currentUser) return;
+            
+            const userData = {
+                sessions: sessions,
+                books: books,
+                aiChallenges: aiChallenges,
+                achievements: [], // To be implemented
+                preferences: currentUser.preferences
+            };
+            
+            ServerSimulation.saveUserData(currentUser.username, userData);
+        }
+        
+        // Set up all event listeners
+        function setupEventListeners() {
+            // Auth event listeners
+            document.getElementById('loginTab').addEventListener('click', () => switchAuthForm('login'));
+            document.getElementById('registerTab').addEventListener('click', () => switchAuthForm('register'));
+            document.getElementById('loginBtn').addEventListener('click', login);
+            document.getElementById('registerBtn').addEventListener('click', register);
+            document.getElementById('recoverPasswordBtn').addEventListener('click', recoverPassword);
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
+                e.preventDefault();
+                switchAuthForm('forgotPassword');
+            });
+            document.getElementById('backToLogin').addEventListener('click', (e) => {
+                e.preventDefault();
+                switchAuthForm('login');
+            });
+            
+            // Password visibility toggles
+            document.getElementById('toggleLoginPassword').addEventListener('click', () => {
+                togglePasswordVisibility('loginPassword', 'toggleLoginPassword');
+            });
+            document.getElementById('toggleRegisterPassword').addEventListener('click', () => {
+                togglePasswordVisibility('registerPassword', 'toggleRegisterPassword');
+            });
+            document.getElementById('toggleConfirmPassword').addEventListener('click', () => {
+                togglePasswordVisibility('confirmPassword', 'toggleConfirmPassword');
+            });
+            document.getElementById('toggleCurrentPassword').addEventListener('click', () => {
+                togglePasswordVisibility('currentPassword', 'toggleCurrentPassword');
+            });
+            document.getElementById('toggleNewPassword').addEventListener('click', () => {
+                togglePasswordVisibility('newPassword', 'toggleNewPassword');
+            });
+            document.getElementById('toggleConfirmNewPassword').addEventListener('click', () => {
+                togglePasswordVisibility('confirmNewPassword', 'toggleConfirmNewPassword');
+            });
+            
+            // Navigation
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const page = item.getAttribute('data-page');
+                    navigateToPage(page);
+                });
+            });
+            
+            // Timer controls
+            document.getElementById('startBtn').addEventListener('click', startReading);
+            document.getElementById('stopBtn').addEventListener('click', stopReading);
+            document.getElementById('resetBtn').addEventListener('click', resetTimer);
+            
+            // Quick actions
+            document.getElementById('quickStartBtn').addEventListener('click', () => {
+                navigateToPage('timer');
+            });
+            
+            // Dark mode toggle
+            document.getElementById('toggleDarkMode').addEventListener('click', toggleDarkMode);
+            
+            // Mobile menu
+            document.getElementById('mobileMenuToggle').addEventListener('click', toggleMobileMenu);
+            document.getElementById('toggleSidebar').addEventListener('click', toggleMobileMenu);
+            
+            // Analytics filters
+            document.querySelectorAll('[data-filter]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    analyticsFilter = btn.getAttribute('data-filter');
+                    document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    updateAnalyticsChart();
+                });
+            });
+            
+            document.querySelectorAll('[data-period]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    analyticsPeriod = btn.getAttribute('data-period');
+                    document.querySelectorAll('[data-period]').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    updateAnalyticsChart();
+                });
+            });
+            
+            document.getElementById('applyDateRange').addEventListener('click', () => {
+                updateAnalyticsChart();
+            });
+            
+            // Export buttons
+            document.getElementById('exportCSVBtn').addEventListener('click', exportToCSV);
+            document.getElementById('exportJSONBtn').addEventListener('click', exportToJSON);
+            
+            // Goals
+            document.getElementById('setGoalBtn').addEventListener('click', setDailyGoal);
+            document.getElementById('aiChallengeBtn').addEventListener('click', generateAIChallenge);
+            
+            // Profile
+            document.getElementById('updateProfileBtn').addEventListener('click', updateProfile);
+            document.getElementById('changePasswordBtn').addEventListener('click', changePassword);
+            
+            // Session filters
+            document.querySelectorAll('[data-session-filter]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const filter = btn.getAttribute('data-session-filter');
+                    document.querySelectorAll('[data-session-filter]').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    updateSessionsTable(filter);
+                });
+            });
+            
+            // Books
+            document.getElementById('addBookBtn').addEventListener('click', openAddBookModal);
+            document.getElementById('addFirstBookBtn').addEventListener('click', openAddBookModal);
+            document.getElementById('closeBookModal').addEventListener('click', closeAddBookModal);
+            document.getElementById('saveBookBtn').addEventListener('click', saveBook);
+            
+            // Book filters
+            document.querySelectorAll('[data-book-filter]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    bookFilter = btn.getAttribute('data-book-filter');
+                    document.querySelectorAll('[data-book-filter]').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    updateBooksGrid();
+                });
+            });
+        }
+        
+        // Toggle password visibility
+        function togglePasswordVisibility(inputId, toggleId) {
+            const passwordInput = document.getElementById(inputId);
+            const toggleIcon = document.getElementById(toggleId).querySelector('i');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            }
+        }
+        
+        // Navigation function
+        function navigateToPage(page) {
+            // Update active nav item
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.getAttribute('data-page') === page) {
+                    item.classList.add('active');
+                }
+            });
+            
+            // Hide all pages
+            document.querySelectorAll('.page-content').forEach(pageEl => {
+                pageEl.classList.add('hidden');
+            });
+            
+            // Show selected page
+            document.getElementById(`${page}Page`).classList.remove('hidden');
+            
+            // Update page title
+            const pageTitles = {
+                dashboard: 'Dashboard',
+                analytics: 'Analytics',
+                goals: 'Goals & Challenges',
+                timer: 'Reading Timer',
+                sessions: 'Reading Sessions',
+                books: 'My Books',
+                notes: 'Notes & Highlights',
+                achievements: 'Achievements',
+                leaderboard: 'Leaderboard',
+                profile: 'Profile',
+                preferences: 'Preferences'
+            };
+            
+            document.getElementById('pageTitle').textContent = pageTitles[page] || 'Page';
+            currentPage = page;
+            
+            // Update specific page content if needed
+            if (page === 'analytics') {
+                updateAnalyticsChart();
+            } else if (page === 'sessions') {
+                updateSessionsTable('all');
+            } else if (page === 'books') {
+                updateBooksGrid();
+                updateBookDropdown();
+            } else if (page === 'profile') {
+                updateProfilePage();
+            } else if (page === 'goals') {
+                updateAIChallengesDisplay();
+            }
+            
+            // Close mobile menu if open
+            if (window.innerWidth <= 1024) {
+                document.getElementById('sidebar').classList.remove('active');
+            }
+        }
+        
+        // Toggle mobile menu
+        function toggleMobileMenu() {
+            document.getElementById('sidebar').classList.toggle('active');
+        }
+        
+        // Toggle dark mode
+        function toggleDarkMode() {
+            darkMode = !darkMode;
+            document.body.classList.toggle('dark-mode', darkMode);
+            localStorage.setItem('readingTrackerDarkMode', darkMode);
+        }
+        
+        // Check for saved dark mode preference
+        if (localStorage.getItem('readingTrackerDarkMode') === 'true') {
+            darkMode = true;
+            document.body.classList.add('dark-mode');
+        }
+        
+        // Timer functions
+        function startReading() {
+            if (isReading) return;
+            
+            isReading = true;
+            startTime = new Date();
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            
+            timerInterval = setInterval(updateTimer, 1000);
+            
+            // Save timer state to localStorage for persistence
+            saveTimerState();
+        }
+        
+        function stopReading() {
+            if (!isReading) return;
+            
+            isReading = false;
+            const endTime = new Date();
+            const duration = endTime - startTime;
+            
+            // Get session details
+            const book = document.getElementById('sessionBook').value;
+            const category = document.getElementById('sessionCategory').value;
+            const notes = document.getElementById('sessionNotes').value;
+            
+            // Save session
+            sessions.push({
+                date: startTime.toISOString().split('T')[0],
+                startTime: startTime.toLocaleTimeString(),
+                endTime: endTime.toLocaleTimeString(),
+                duration: duration,
+                book: book,
+                category: category,
+                notes: notes,
+                startTimestamp: startTime.getTime(),
+                endTimestamp: endTime.getTime()
+            });
+            
+            // Reset timer
+            clearInterval(timerInterval);
+            elapsedTime = 0;
+            document.getElementById('timerDisplay').textContent = '00:00:00';
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            
+            // Clear form
+            document.getElementById('sessionNotes').value = '';
+            
+            // Clear timer state from localStorage
+            localStorage.removeItem(`activeTimer_${currentUser.username}`);
+            
+            // Save data and update UI
+            saveUserData();
+            updateUI();
+            
+            // Calculate new streak
+            calculateReadingStreak();
+            
+            // Check challenge progress
+            updateChallengeProgress();
+            
+            // Send motivational message
+            sendMotivationalNotification('achievement');
+            
+            showMessage('Reading session saved successfully!', 'success');
+        }
+        
+        function resetTimer() {
+            if (isReading) {
+                clearInterval(timerInterval);
+                isReading = false;
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = true;
+                
+                // Clear timer state from localStorage
+                localStorage.removeItem(`activeTimer_${currentUser.username}`);
+            }
+            
+            elapsedTime = 0;
+            document.getElementById('timerDisplay').textContent = '00:00:00';
+        }
+        
+        function updateTimer() {
+            elapsedTime = new Date() - startTime;
+            document.getElementById('timerDisplay').textContent = formatTime(elapsedTime);
+            
+            // Save timer state every 5 seconds for persistence
+            if (Math.floor(elapsedTime / 1000) % 5 === 0) {
+                saveTimerState();
+            }
+        }
+        
+        function saveTimerState() {
+            if (isReading && currentUser) {
+                const timerState = {
+                    isActive: true,
+                    startTime: startTime.getTime(),
+                    elapsedTime: elapsedTime
+                };
+                localStorage.setItem(`activeTimer_${currentUser.username}`, JSON.stringify(timerState));
+            }
+        }
+        
+        function formatTime(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        // Update UI with current data
+        function updateUI() {
+            if (!currentUser) return;
+            
+            // Calculate stats
+            const today = new Date().toISOString().split('T')[0];
+            const todaySessions = sessions.filter(session => session.date === today);
+            const todayTotalTime = todaySessions.reduce((total, session) => total + session.duration, 0);
+            const totalReadingTime = sessions.reduce((total, session) => total + session.duration, 0);
+            
+            // Update dashboard stats
+            document.getElementById('todayReading').textContent = `${Math.floor(todayTotalTime / 60000)}m`;
+            document.getElementById('totalReadingTime').textContent = `${(totalReadingTime / 3600000).toFixed(1)} hours`;
+            
+            // Update goal progress
+            const dailyGoal = currentUser.preferences.dailyGoal || 60;
+            const todayMinutes = Math.floor(todayTotalTime / 60000);
+            const progress = Math.min((todayMinutes / dailyGoal) * 100, 100);
+            
+            document.getElementById('goalProgress').textContent = `${Math.round(progress)}%`;
+            document.getElementById('goalProgressBar').style.width = `${progress}%`;
+            document.getElementById('goalText').textContent = `${todayMinutes}/${dailyGoal} minutes`;
+            
+            // Update other stats
+            const completedBooks = books.filter(book => book.status === 'completed').length;
+            const longestSession = sessions.length > 0 ? Math.max(...sessions.map(s => s.duration)) : 0;
+            const averageSession = sessions.length > 0 ? totalReadingTime / sessions.length : 0;
+            
+            document.getElementById('booksCompleted').textContent = completedBooks;
+            document.getElementById('longestSession').textContent = `${Math.floor(longestSession / 60000)} minutes`;
+            document.getElementById('averageSession').textContent = `${Math.floor(averageSession / 60000)} minutes`;
+            
+            // Update chart
+            updateDashboardChart();
+        }
+        
+        function updateDashboardChart() {
+            const ctx = document.getElementById('dashboardChart').getContext('2d');
+            
+            // Get data for the last 7 days
+            const dates = [];
+            const readingTimes = [];
+            
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const dateString = date.toISOString().split('T')[0];
+                
+                dates.push(dateString);
+                
+                const daySessions = sessions.filter(session => session.date === dateString);
+                const dayTotalTime = daySessions.reduce((total, session) => total + session.duration, 0);
+                readingTimes.push(dayTotalTime / 60000); // Convert to minutes
+            }
+            
+            // Destroy existing chart if it exists
+            if (window.dashboardChartInstance) {
+                window.dashboardChartInstance.destroy();
+            }
+            
+            // Create new chart
+            window.dashboardChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dates.map(date => {
+                        const d = new Date(date);
+                        return `${d.getMonth()+1}/${d.getDate()}`;
+                    }),
+                    datasets: [{
+                        label: 'Reading Time (minutes)',
+                        data: readingTimes,
+                        backgroundColor: 'rgba(37, 117, 252, 0.7)',
+                        borderColor: 'rgba(37, 117, 252, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Minutes'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Analytics functions
+        function updateAnalyticsChart() {
+            const ctx = document.getElementById('analyticsChart').getContext('2d');
+            
+            let data = [];
+            let labels = [];
+            
+            // Get filtered sessions based on period
+            let filteredSessions = [...sessions];
+            
+            if (analyticsPeriod === 'today') {
+                const today = new Date().toISOString().split('T')[0];
+                filteredSessions = sessions.filter(session => session.date === today);
+            } else if (analyticsPeriod === 'week') {
+                const oneWeekAgo = new Date();
+                oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                filteredSessions = sessions.filter(session => new Date(session.date) >= oneWeekAgo);
+            } else if (analyticsPeriod === 'month') {
+                const oneMonthAgo = new Date();
+                oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+                filteredSessions = sessions.filter(session => new Date(session.date) >= oneMonthAgo);
+            }
+            
+            // Apply date range filter if set
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            if (startDate && endDate) {
+                filteredSessions = filteredSessions.filter(session => {
+                    return session.date >= startDate && session.date <= endDate;
+                });
+            }
+            
+            // Prepare data based on filter type
+            if (analyticsFilter === 'daily') {
+                // Group by day
+                const groupedByDay = {};
+                
+                filteredSessions.forEach(session => {
+                    if (!groupedByDay[session.date]) {
+                        groupedByDay[session.date] = 0;
+                    }
+                    groupedByDay[session.date] += session.duration;
+                });
+                
+                labels = Object.keys(groupedByDay).sort();
+                data = labels.map(date => groupedByDay[date] / 60000); // Convert to minutes
+                
+                // Format labels
+                labels = labels.map(date => {
+                    const d = new Date(date);
+                    return `${d.getMonth()+1}/${d.getDate()}`;
+                });
+            } else if (analyticsFilter === 'weekly') {
+                // Group by week
+                const groupedByWeek = {};
+                
+                filteredSessions.forEach(session => {
+                    const date = new Date(session.date);
+                    const weekStart = new Date(date);
+                    weekStart.setDate(date.getDate() - date.getDay()); // Start of week (Sunday)
+                    const weekKey = weekStart.toISOString().split('T')[0];
+                    
+                    if (!groupedByWeek[weekKey]) {
+                        groupedByWeek[weekKey] = 0;
+                    }
+                    groupedByWeek[weekKey] += session.duration;
+                });
+                
+                labels = Object.keys(groupedByWeek).sort();
+                data = labels.map(week => groupedByWeek[week] / 60000); // Convert to minutes
+                
+                // Format labels
+                labels = labels.map(week => {
+                    const d = new Date(week);
+                    return `Week of ${d.getMonth()+1}/${d.getDate()}`;
+                });
+            } else if (analyticsFilter === 'monthly') {
+                // Group by month
+                const groupedByMonth = {};
+                
+                filteredSessions.forEach(session => {
+                    const date = new Date(session.date);
+                    const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+                    
+                    if (!groupedByMonth[monthKey]) {
+                        groupedByMonth[monthKey] = 0;
+                    }
+                    groupedByMonth[monthKey] += session.duration;
+                });
+                
+                labels = Object.keys(groupedByMonth).sort();
+                data = labels.map(month => groupedByMonth[month] / 60000); // Convert to minutes
+                
+                // Format labels
+                labels = labels.map(month => {
+                    const [year, monthNum] = month.split('-');
+                    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    return `${monthNames[parseInt(monthNum)]} ${year}`;
+                });
+            } else if (analyticsFilter === 'timeOfDay') {
+                // Group by hour of day
+                const groupedByHour = {};
+                
+                for (let i = 0; i < 24; i++) {
+                    groupedByHour[i] = 0;
+                }
+                
+                filteredSessions.forEach(session => {
+                    const hour = new Date(session.startTimestamp).getHours();
+                    groupedByHour[hour] += session.duration;
+                });
+                
+                labels = Object.keys(groupedByHour).map(hour => {
+                    const hourNum = parseInt(hour);
+                    return hourNum === 0 ? '12 AM' : 
+                           hourNum < 12 ? `${hourNum} AM` : 
+                           hourNum === 12 ? '12 PM' : 
+                           `${hourNum - 12} PM`;
+                });
+                
+                data = Object.values(groupedByHour).map(duration => duration / 60000); // Convert to minutes
+            }
+            
+            // Destroy existing chart if it exists
+            if (window.analyticsChartInstance) {
+                window.analyticsChartInstance.destroy();
+            }
+            
+            // Create new chart
+            window.analyticsChartInstance = new Chart(ctx, {
+                type: analyticsFilter === 'timeOfDay' ? 'line' : 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Reading Time (minutes)',
+                        data: data,
+                        backgroundColor: analyticsFilter === 'timeOfDay' ? 
+                            'rgba(37, 117, 252, 0.2)' : 
+                            'rgba(37, 117, 252, 0.7)',
+                        borderColor: 'rgba(37, 117, 252, 1)',
+                        borderWidth: analyticsFilter === 'timeOfDay' ? 2 : 1,
+                        fill: analyticsFilter === 'timeOfDay'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Minutes'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: analyticsFilter === 'daily' ? 'Date' : 
+                                      analyticsFilter === 'weekly' ? 'Week' : 
+                                      analyticsFilter === 'monthly' ? 'Month' : 
+                                      'Time of Day'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Export functions
+        function exportToCSV() {
+            if (sessions.length === 0) {
+                showMessage('No data to export', 'error');
+                return;
+            }
+            
+            let csvContent = "Date,Start Time,End Time,Duration (minutes),Category,Book,Notes\n";
+            
+            sessions.forEach(session => {
+                const durationMinutes = Math.floor(session.duration / 60000);
+                const row = [
+                    session.date,
+                    session.startTime,
+                    session.endTime,
+                    durationMinutes,
+                    session.category,
+                    session.book || '',
+                    session.notes || ''
+                ].map(field => `"${field}"`).join(',');
+                
+                csvContent += row + "\n";
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `reading_sessions_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showMessage('Data exported to CSV successfully', 'success');
+        }
+        
+        function exportToJSON() {
+            if (sessions.length === 0) {
+                showMessage('No data to export', 'error');
+                return;
+            }
+            
+            const exportData = {
+                user: currentUser.username,
+                exportDate: new Date().toISOString(),
+                sessions: sessions
+            };
+            
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `reading_data_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showMessage('Data exported to JSON successfully', 'success');
+        }
+        
+        // Goals functions
+        function setDailyGoal() {
+            const goalInput = document.getElementById('dailyGoalInput');
+            const goal = parseInt(goalInput.value);
+            
+            if (isNaN(goal) || goal < 1) {
+                showMessage('Please enter a valid goal (at least 1 minute)', 'error');
+                return;
+            }
+            
+            currentUser.preferences.dailyGoal = goal;
+            saveUserData();
+            updateUI();
+            
+            showMessage(`Daily goal set to ${goal} minutes`, 'success');
+        }
+        
+        // AI Challenge functions
+        function generateAIChallenge() {
+            // Analyze user's reading habits to determine appropriate challenge level
+            const userLevel = analyzeReadingLevel();
+            
+            // Select a random challenge from the appropriate level
+            const challenges = challengeTemplates[userLevel];
+            const randomChallenge = challenges[Math.floor(Math.random() * challenges.length)];
+            
+            // Add unique ID and start date to the challenge
+            const challengeWithId = {
+                ...randomChallenge,
+                id: Date.now().toString(),
+                startDate: new Date().toISOString().split('T')[0],
+                progress: 0,
+                completed: false
+            };
+            
+            // Add to challenges list
+            aiChallenges.push(challengeWithId);
+            
+            // Save and update display
+            saveUserData();
+            updateAIChallengesDisplay();
+            
+            // Show success message
+            showMessage(`New AI challenge added: ${challengeWithId.title}`, 'success');
+            
+            // Add AI message about the challenge
+            addAIMessage(`I've created a new challenge for you: "${challengeWithId.title}". This should help you ${getChallengeBenefit(challengeWithId.type)}. Good luck!`, "ai");
+        }
+        
+        function analyzeReadingLevel() {
+            // Calculate average daily reading time over the last 7 days
+            const last7Days = [];
+            for (let i = 0; i < 7; i++) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const dateString = date.toISOString().split('T')[0];
+                last7Days.push(dateString);
+            }
+            
+            const recentSessions = sessions.filter(session => 
+                last7Days.includes(session.date)
+            );
+            
+            const totalRecentTime = recentSessions.reduce((total, session) => total + session.duration, 0);
+            const avgDailyMinutes = totalRecentTime / (7 * 60000); // Convert to minutes
+            
+            // Determine level based on average daily reading
+            if (avgDailyMinutes < 15) {
+                return 'beginner';
+            } else if (avgDailyMinutes < 45) {
+                return 'intermediate';
+            } else {
+                return 'advanced';
+            }
+        }
+        
+        function getChallengeBenefit(type) {
+            const benefits = {
+                'consistency': 'build a consistent reading habit',
+                'variety': 'explore different genres and authors',
+                'endurance': 'increase your reading stamina',
+                'intensity': 'boost your reading intensity',
+                'dedication': 'demonstrate your reading dedication',
+                'completion': 'focus on finishing books'
+            };
+            
+            return benefits[type] || 'improve your reading skills';
+        }
+        
+        function updateAIChallengesDisplay() {
+            const container = document.getElementById('aiChallengesContainer');
+            const noChallengesMessage = document.getElementById('noChallengesMessage');
+            
+            container.innerHTML = '';
+            
+            if (aiChallenges.length === 0) {
+                container.style.display = 'none';
+                noChallengesMessage.style.display = 'block';
+                return;
+            }
+            
+            container.style.display = 'grid';
+            noChallengesMessage.style.display = 'none';
+            
+            aiChallenges.forEach(challenge => {
+                const challengeCard = document.createElement('div');
+                challengeCard.className = 'challenge-card';
+                
+                // Calculate progress
+                const progress = calculateChallengeProgress(challenge);
+                
+                challengeCard.innerHTML = `
+                    <div class="challenge-header">
+                        <div>
+                            <div class="challenge-title">${challenge.title}</div>
+                            <div class="challenge-difficulty difficulty-${challenge.difficulty}">
+                                ${challenge.difficulty.charAt(0).toUpperCase() + challenge.difficulty.slice(1)}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="challenge-description">${challenge.description}</div>
+                    <div class="challenge-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progress}%; background: var(--primary);"></div>
+                        </div>
+                        <div class="text-center mt-5">
+                            <small>${Math.round(progress)}% complete</small>
+                        </div>
+                    </div>
+                    <div class="challenge-actions">
+                        <button class="btn btn-outline btn-sm view-challenge" data-id="${challenge.id}">Details</button>
+                        ${!challenge.completed ? `
+                            <button class="btn btn-danger btn-sm delete-challenge" data-id="${challenge.id}">Remove</button>
+                        ` : `
+                            <span class="badge badge-success">Completed!</span>
+                        `}
+                    </div>
+                `;
+                
+                container.appendChild(challengeCard);
+            });
+            
+            // Add event listeners
+            document.querySelectorAll('.view-challenge').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const challengeId = btn.getAttribute('data-id');
+                    viewChallengeDetails(challengeId);
+                });
+            });
+            
+            document.querySelectorAll('.delete-challenge').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const challengeId = btn.getAttribute('data-id');
+                    deleteChallenge(challengeId);
+                });
+            });
+        }
+        
+        function calculateChallengeProgress(challenge) {
+            if (challenge.completed) return 100;
+            
+            const startDate = new Date(challenge.startDate);
+            const today = new Date();
+            const daysPassed = Math.floor((today - startDate) / (1000 * 60 * 60 * 24)) + 1;
+            const totalDays = challenge.duration;
+            
+            // For now, we'll use a simple time-based progress
+            // In a real implementation, you would track actual completion against requirements
+            return Math.min((daysPassed / totalDays) * 100, 100);
+        }
+        
+        function updateChallengeProgress() {
+            // This would update challenge progress based on actual reading activity
+            // For now, we'll just trigger a display update
+            updateAIChallengesDisplay();
+        }
+        
+        function viewChallengeDetails(challengeId) {
+            const challenge = aiChallenges.find(c => c.id === challengeId);
+            if (challenge) {
+                alert(`Challenge Details:\nTitle: ${challenge.title}\nDescription: ${challenge.description}\nDifficulty: ${challenge.difficulty}\nDuration: ${challenge.duration} days\nProgress: ${Math.round(calculateChallengeProgress(challenge))}%`);
+            }
+        }
+        
+        function deleteChallenge(challengeId) {
+            if (confirm('Are you sure you want to remove this challenge?')) {
+                aiChallenges = aiChallenges.filter(c => c.id !== challengeId);
+                saveUserData();
+                updateAIChallengesDisplay();
+                showMessage('Challenge removed', 'success');
+            }
+        }
+        
+        // Sessions functions
+        function updateSessionsTable(filter) {
+            const tableBody = document.getElementById('sessionsTableBody');
+            tableBody.innerHTML = '';
+            
+            let filteredSessions = [...sessions];
+            
+            if (filter === 'today') {
+                const today = new Date().toISOString().split('T')[0];
+                filteredSessions = sessions.filter(session => session.date === today);
+            } else if (filter === 'week') {
+                const oneWeekAgo = new Date();
+                oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                filteredSessions = sessions.filter(session => new Date(session.date) >= oneWeekAgo);
+            } else if (filter === 'month') {
+                const oneMonthAgo = new Date();
+                oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+                filteredSessions = sessions.filter(session => new Date(session.date) >= oneMonthAgo);
+            }
+            
+            if (filteredSessions.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center">No sessions found</td></tr>';
+                return;
+            }
+            
+            // Sort by date (newest first)
+            filteredSessions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            filteredSessions.forEach(session => {
+                const row = document.createElement('tr');
+                
+                const durationMinutes = Math.floor(session.duration / 60000);
+                
+                row.innerHTML = `
+                    <td>${session.date}</td>
+                    <td>${durationMinutes} min</td>
+                    <td>${session.category}</td>
+                    <td>${session.book || 'N/A'}</td>
+                    <td>${session.notes || 'No notes'}</td>
+                    <td>
+                        <button class="btn btn-outline btn-sm view-session" data-id="${session.startTimestamp}">View</button>
+                        <button class="btn btn-danger btn-sm delete-session" data-id="${session.startTimestamp}">Delete</button>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            // Add event listeners to the new buttons
+            document.querySelectorAll('.view-session').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const sessionId = btn.getAttribute('data-id');
+                    viewSession(sessionId);
+                });
+            });
+            
+            document.querySelectorAll('.delete-session').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const sessionId = btn.getAttribute('data-id');
+                    deleteSession(sessionId);
+                });
+            });
+        }
+        
+        function viewSession(sessionId) {
+            const session = sessions.find(s => s.startTimestamp == sessionId);
+            if (session) {
+                alert(`Session Details:\nDate: ${session.date}\nTime: ${session.startTime} - ${session.endTime}\nDuration: ${Math.floor(session.duration / 60000)} minutes\nCategory: ${session.category}\nBook: ${session.book || 'N/A'}\nNotes: ${session.notes || 'No notes'}`);
+            }
+        }
+        
+        function deleteSession(sessionId) {
+            if (confirm('Are you sure you want to delete this session?')) {
+                sessions = sessions.filter(s => s.startTimestamp != sessionId);
+                saveUserData();
+                updateSessionsTable('all');
+                updateUI();
+                showMessage('Session deleted successfully', 'success');
+            }
+        }
+        
+        // Books functions
+        function openAddBookModal() {
+            document.getElementById('addBookModal').classList.add('active');
+            // Reset form
+            document.getElementById('bookTitle').value = '';
+            document.getElementById('bookAuthor').value = '';
+            document.getElementById('bookGenre').value = 'fiction';
+            document.getElementById('bookStatus').value = 'want-to-read';
+            document.getElementById('bookPages').value = '';
+            document.getElementById('currentPage').value = '';
+            document.getElementById('bookNotes').value = '';
+        }
+        
+        function closeAddBookModal() {
+            document.getElementById('addBookModal').classList.remove('active');
+        }
+        
+        function saveBook() {
+            const title = document.getElementById('bookTitle').value;
+            const author = document.getElementById('bookAuthor').value;
+            const genre = document.getElementById('bookGenre').value;
+            const status = document.getElementById('bookStatus').value;
+            const totalPages = parseInt(document.getElementById('bookPages').value) || 0;
+            const currentPage = parseInt(document.getElementById('currentPage').value) || 0;
+            const notes = document.getElementById('bookNotes').value;
+            
+            if (!title || !author) {
+                showMessage('Please fill in title and author', 'error');
+                return;
+            }
+            
+            if (totalPages > 0 && currentPage > totalPages) {
+                showMessage('Current page cannot be greater than total pages', 'error');
+                return;
+            }
+            
+            const newBook = {
+                id: Date.now().toString(),
+                title,
+                author,
+                genre,
+                status,
+                totalPages,
+                currentPage,
+                progress: totalPages > 0 ? Math.round((currentPage / totalPages) * 100) : 0,
+                notes,
+                addedDate: new Date().toISOString().split('T')[0]
+            };
+            
+            books.push(newBook);
+            saveUserData();
+            updateBooksGrid();
+            updateBookDropdown();
+            closeAddBookModal();
+            
+            showMessage('Book added successfully!', 'success');
+        }
+        
+        function updateBooksGrid() {
+            const booksGrid = document.getElementById('booksGrid');
+            const noBooksMessage = document.getElementById('noBooksMessage');
+            
+            booksGrid.innerHTML = '';
+            
+            // Filter books based on current filter
+            let filteredBooks = [...books];
+            
+            if (bookFilter === 'reading') {
+                filteredBooks = books.filter(book => book.status === 'reading');
+            } else if (bookFilter === 'completed') {
+                filteredBooks = books.filter(book => book.status === 'completed');
+            } else if (bookFilter === 'want-to-read') {
+                filteredBooks = books.filter(book => book.status === 'want-to-read');
+            }
+            
+            if (filteredBooks.length === 0) {
+                booksGrid.style.display = 'none';
+                noBooksMessage.style.display = 'block';
+                return;
+            }
+            
+            booksGrid.style.display = 'grid';
+            noBooksMessage.style.display = 'none';
+            
+            filteredBooks.forEach(book => {
+                const bookCard = document.createElement('div');
+                bookCard.className = 'book-card';
+                
+                // Determine status badge
+                let statusBadge = '';
+                if (book.status === 'reading') {
+                    statusBadge = '<span class="badge badge-primary">Reading</span>';
+                } else if (book.status === 'completed') {
+                    statusBadge = '<span class="badge badge-success">Completed</span>';
+                } else {
+                    statusBadge = '<span class="badge badge-warning">Want to Read</span>';
+                }
+                
+                bookCard.innerHTML = `
+                    <div class="book-cover">
+                        <i class="fas fa-book" style="font-size: 3rem; color: #666;"></i>
+                    </div>
+                    <div class="book-title">${book.title}</div>
+                    <div class="book-author">by ${book.author}</div>
+                    <div class="book-genre">${book.genre}</div>
+                    ${statusBadge}
+                    <div class="book-progress mt-10">
+                        ${book.totalPages > 0 ? `
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${book.progress}%; background: var(--primary);"></div>
+                            </div>
+                            <div class="text-center mt-5">
+                                <small>${book.currentPage}/${book.totalPages} pages (${book.progress}%)</small>
+                            </div>
+                        ` : '<div class="text-center"><small>No page info</small></div>'}
+                    </div>
+                    <div class="book-actions mt-10">
+                        <button class="btn btn-outline btn-sm edit-book" data-id="${book.id}">Edit</button>
+                        <button class="btn btn-danger btn-sm delete-book" data-id="${book.id}">Delete</button>
+                    </div>
+                `;
+                
+                booksGrid.appendChild(bookCard);
+            });
+            
+            // Add event listeners to the new buttons
+            document.querySelectorAll('.edit-book').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const bookId = btn.getAttribute('data-id');
+                    editBook(bookId);
+                });
+            });
+            
+            document.querySelectorAll('.delete-book').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const bookId = btn.getAttribute('data-id');
+                    deleteBook(bookId);
+                });
+            });
+        }
+        
+        function updateBookDropdown() {
+            const bookDropdown = document.getElementById('sessionBook');
+            bookDropdown.innerHTML = '<option value="">No book selected</option>';
+            
+            books.forEach(book => {
+                const option = document.createElement('option');
+                option.value = book.title;
+                option.textContent = book.title;
+                bookDropdown.appendChild(option);
+            });
+        }
+        
+        function editBook(bookId) {
+            const book = books.find(b => b.id === bookId);
+            if (book) {
+                // For now, we'll just show an alert with book details
+                // In a real app, you would open a modal to edit the book
+                alert(`Edit Book:\nTitle: ${book.title}\nAuthor: ${book.author}\nGenre: ${book.genre}\nStatus: ${book.status}\nPages: ${book.currentPage}/${book.totalPages}\nNotes: ${book.notes || 'No notes'}`);
+            }
+        }
+        
+        function deleteBook(bookId) {
+            if (confirm('Are you sure you want to delete this book?')) {
+                books = books.filter(b => b.id !== bookId);
+                saveUserData();
+                updateBooksGrid();
+                updateBookDropdown();
+                updateUI();
+                showMessage('Book deleted successfully', 'success');
+            }
+        }
+        
+        // Profile functions
+        function updateProfilePage() {
+            if (!currentUser) return;
+            
+            document.getElementById('profileUsername').value = currentUser.username;
+            document.getElementById('profileEmail').value = currentUser.email;
+            document.getElementById('profileFirstName').value = currentUser.firstName || '';
+            document.getElementById('profileLastName').value = currentUser.lastName || '';
+            document.getElementById('memberSince').value = new Date(currentUser.createdAt).toLocaleDateString();
+            
+            // Calculate stats
+            const totalReadingTime = sessions.reduce((total, session) => total + session.duration, 0);
+            const completedBooks = books.filter(book => book.status === 'completed').length;
+            
+            document.getElementById('profileTotalReadingTime').value = `${(totalReadingTime / 3600000).toFixed(1)} hours`;
+            document.getElementById('profileTotalSessions').value = sessions.length;
+            document.getElementById('profileBooksCompleted').value = completedBooks;
+        }
+        
+        function updateProfile() {
+            const email = document.getElementById('profileEmail').value;
+            const firstName = document.getElementById('profileFirstName').value;
+            const lastName = document.getElementById('profileLastName').value;
+            
+            if (!email) {
+                showMessage('Email is required', 'error');
+                return;
+            }
+            
+            // Update user data
+            currentUser.email = email;
+            currentUser.firstName = firstName;
+            currentUser.lastName = lastName;
+            
+            // Update in server simulation
+            ServerSimulation.registerUser(currentUser.username, currentUser);
+            
+            showMessage('Profile updated successfully', 'success');
+        }
+        
+        function changePassword() {
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+            
+            if (!currentPassword || !newPassword || !confirmNewPassword) {
+                showMessage('Please fill in all password fields', 'error');
+                return;
+            }
+            
+            if (currentPassword !== currentUser.password) {
+                showMessage('Current password is incorrect', 'error');
+                return;
+            }
+            
+            if (newPassword !== confirmNewPassword) {
+                showMessage('New passwords do not match', 'error');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                showMessage('New password must be at least 6 characters', 'error');
+                return;
+            }
+            
+            // Update password
+            currentUser.password = newPassword;
+            
+            // Update in server simulation
+            ServerSimulation.registerUser(currentUser.username, currentUser);
+            
+            // Clear password fields
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmNewPassword').value = '';
+            
+            showMessage('Password changed successfully', 'success');
+        }
+        
+        // Enhanced AI Assistant Functions
+        function initEnhancedAI() {
+            // Set up event listeners for AI assistant
+            document.getElementById('aiAssistantBtn').addEventListener('click', toggleAIAssistant);
+            document.getElementById('aiCloseBtn').addEventListener('click', toggleAIAssistant);
+            document.getElementById('aiSendBtn').addEventListener('click', sendAIMessage);
+            document.getElementById('aiInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendAIMessage();
+                }
+            });
+            
+            // Set up suggestion buttons
+            document.querySelectorAll('.ai-suggestion').forEach(button => {
+                button.addEventListener('click', () => {
+                    const question = button.getAttribute('data-question');
+                    handleSuggestionClick(question);
+                });
+            });
+            
+            // Start AI assistant when user logs in
+            if (currentUser) {
+                startAIAssistant();
+            }
+        }
+        
+        function startAIAssistant() {
+            // Load conversation history from localStorage
+            const savedHistory = localStorage.getItem(`aiConversation_${currentUser.username}`);
+            if (savedHistory) {
+                aiConversationHistory = JSON.parse(savedHistory);
+                // Restore previous messages
+                aiConversationHistory.forEach(msg => {
+                    addAIMessage(msg.content, msg.role, false, msg.timestamp);
+                });
+            } else {
+                // Add welcome message
+                addAIMessage("Hello! I'm your Reading Assistant. I'm here to help you stay motivated, track your progress, and make the most of your reading journey. What would you like to know about your reading habits today?", "ai");
+            }
+            
+            // Load AI context
+            const savedContext = localStorage.getItem(`aiContext_${currentUser.username}`);
+            if (savedContext) {
+                aiContext = JSON.parse(savedContext);
+            }
+            
+            // Set up periodic notifications
+            setInterval(checkForNotifications, 300000); // Check every 5 minutes
+            
+            // Send initial notification after a short delay
+            setTimeout(() => {
+                sendContextualNotification();
+            }, 10000);
+            
+            // Pulse the AI button to attract attention
+            document.getElementById('aiAssistantBtn').classList.add('pulse');
+            setTimeout(() => {
+                document.getElementById('aiAssistantBtn').classList.remove('pulse');
+            }, 5000);
+        }
+        
+        function toggleAIAssistant() {
+            const panel = document.getElementById('aiAssistantPanel');
+            aiAssistantActive = !aiAssistantActive;
+            
+            if (aiAssistantActive) {
+                panel.classList.add('active');
+                document.getElementById('aiInput').focus();
+            } else {
+                panel.classList.remove('active');
+            }
+        }
+        
+        function addAIMessage(message, sender, saveToHistory = true, timestamp = null) {
+            const messagesContainer = document.getElementById('aiMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `ai-message ${sender}`;
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'ai-message-bubble';
+            bubble.textContent = message;
+            
+            messageDiv.appendChild(bubble);
+            
+            // Add timestamp
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'ai-message-time';
+            timeDiv.textContent = timestamp ? formatTime(new Date(timestamp)) : formatTime(new Date());
+            messageDiv.appendChild(timeDiv);
+            
+            messagesContainer.appendChild(messageDiv);
+            
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // Save to conversation history
+            if (saveToHistory) {
+                aiConversationHistory.push({
+                    role: sender,
+                    content: message,
+                    timestamp: timestamp || Date.now()
+                });
+                
+                // Keep only last 50 messages to prevent storage bloat
+                if (aiConversationHistory.length > 50) {
+                    aiConversationHistory = aiConversationHistory.slice(-50);
+                }
+                
+                // Save to localStorage
+                localStorage.setItem(`aiConversation_${currentUser.username}`, JSON.stringify(aiConversationHistory));
+            }
+        }
+        
+        function showTypingIndicator() {
+            document.getElementById('aiTypingIndicator').classList.add('active');
+        }
+        
+        function hideTypingIndicator() {
+            document.getElementById('aiTypingIndicator').classList.remove('active');
+        }
+        
+        function sendAIMessage() {
+            const input = document.getElementById('aiInput');
+            const message = input.value.trim();
+            
+            if (message === '') return;
+            
+            // Add user message
+            addAIMessage(message, 'user');
+            
+            // Clear input
+            input.value = '';
+            
+            // Show typing indicator
+            showTypingIndicator();
+            
+            // Process message and generate response
+            setTimeout(() => {
+                const response = generateAIResponse(message);
+                addAIMessage(response, 'ai');
+                hideTypingIndicator();
+            }, 1000 + Math.random() * 1000); // Random delay to simulate thinking
+        }
+        
+        function handleSuggestionClick(question) {
+            document.getElementById('aiInput').value = question;
+            sendAIMessage();
+        }
+        
+        // Enhanced AI response generation
+        function generateAIResponse(message) {
+            const lowerMessage = message.toLowerCase();
+            
+            // Update context with current query
+            aiContext.lastQuery = lowerMessage;
+            aiContext.lastQueryTime = Date.now();
+            
+            // Check for greeting
+            if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
+                return getGreetingResponse();
+            }
+            
+            // Check for goal-related questions
+            if (lowerMessage.includes('goal') || lowerMessage.includes('target') || lowerMessage.includes('progress')) {
+                return getGoalProgressResponse();
+            }
+            
+            // Check for streak questions
+            if (lowerMessage.includes('streak') || lowerMessage.includes('consistent')) {
+                return getStreakResponse();
+            }
+            
+            // Check for book recommendations
+            if (lowerMessage.includes('recommend') || lowerMessage.includes('suggest') || 
+                lowerMessage.includes('what should i read') || lowerMessage.includes('book idea')) {
+                return getBookRecommendation(lowerMessage);
+            }
+            
+            // Check for challenge requests
+            if (lowerMessage.includes('challenge') || lowerMessage.includes('dare') || 
+                lowerMessage.includes('task') || lowerMessage.includes('motivate')) {
+                return getChallengeResponse();
+            }
+            
+            // Check for reading tips
+            if (lowerMessage.includes('tip') || lowerMessage.includes('advice') || 
+                lowerMessage.includes('how to read') || lowerMessage.includes('improve')) {
+                return getReadingTip();
+            }
+            
+            // Check for statistics
+            if (lowerMessage.includes('stat') || lowerMessage.includes('data') || 
+                lowerMessage.includes('how many') || lowerMessage.includes('how much')) {
+                return getStatisticsResponse();
+            }
+            
+            // Check for motivational quotes
+            if (lowerMessage.includes('quote') || lowerMessage.includes('inspire') || 
+                lowerMessage.includes('motivate') || lowerMessage.includes('encourage')) {
+                return getMotivationalQuote();
+            }
+            
+            // Check for help
+            if (lowerMessage.includes('help') || lowerMessage.includes('what can you do')) {
+                return getHelpResponse();
+            }
+            
+            // Default response - try to understand context
+            return getContextualResponse(message);
+        }
+        
+        function getGreetingResponse() {
+            const greetings = [
+                "Hello! How's your reading going today?",
+                "Hi there! Ready to dive into some books?",
+                "Hey! I'm here to help with your reading journey. What's on your mind?",
+                "Greetings! How can I assist with your reading goals today?"
+            ];
+            
+            // Check time of day for more personalized greeting
+            const hour = new Date().getHours();
+            if (hour < 12) {
+                return "Good morning! Ready to start your day with some reading?";
+            } else if (hour < 18) {
+                return "Good afternoon! How's your reading progress going?";
+            } else {
+                return "Good evening! Perfect time for some relaxing reading!";
+            }
+        }
+        
+        function getGoalProgressResponse() {
+            const today = new Date().toISOString().split('T')[0];
+            const todaySessions = sessions.filter(session => session.date === today);
+            const todayTotalTime = todaySessions.reduce((total, session) => total + session.duration, 0);
+            const todayMinutes = Math.floor(todayTotalTime / 60000);
+            const dailyGoal = currentUser.preferences.dailyGoal || 60;
+            const progress = Math.min((todayMinutes / dailyGoal) * 100, 100);
+            
+            // Update context
+            aiContext.lastGoalCheck = Date.now();
+            saveAIContext();
+            
+            if (progress >= 100) {
+                const congrats = [
+                    `Congratulations! You've crushed your daily goal of ${dailyGoal} minutes! You're a reading superstar!`,
+                    `Amazing! You've not only met but exceeded your ${dailyGoal}-minute goal. Your dedication is inspiring!`,
+                    `Wow! You've already read ${todayMinutes} minutes today, blowing past your ${dailyGoal}-minute target. Keep up the fantastic work!`
+                ];
+                return congrats[Math.floor(Math.random() * congrats.length)];
+            } else if (progress >= 75) {
+                return `You're so close! You've read ${todayMinutes} minutes today, which is ${Math.round(progress)}% of your ${dailyGoal}-minute goal. Just ${dailyGoal - todayMinutes} more minutes to go!`;
+            } else if (progress >= 50) {
+                return `Great progress! You're halfway there with ${todayMinutes} minutes read, ${Math.round(progress)}% of your ${dailyGoal}-minute goal. Keep going!`;
+            } else if (progress > 0) {
+                return `You've made a start with ${todayMinutes} minutes read today, which is ${Math.round(progress)}% of your ${dailyGoal}-minute goal. Every minute counts!`;
+            } else {
+                return `You haven't read anything today yet. Your goal is ${dailyGoal} minutes. How about starting with just 10 minutes right now?`;
+            }
+        }
+        
+        function getStreakResponse() {
+            if (readingStreak > 0) {
+                const streakResponses = [
+                    `You're on a ${readingStreak}-day reading streak! That's fantastic consistency. Your dedication is paying off!`,
+                    `Wow! ${readingStreak} days in a row of reading! You're building an amazing habit that will benefit you for years to come.`,
+                    `Impressive! You've read for ${readingStreak} consecutive days. That kind of consistency is the key to becoming a lifelong reader.`
+                ];
+                return streakResponses[Math.floor(Math.random() * streakResponses.length)];
+            } else {
+                return "You haven't started a reading streak yet. The best time to start was yesterday, the second best time is today! Even 10 minutes of reading counts toward building your streak.";
+            }
+        }
+        
+        function getBookRecommendation(query) {
+            // Determine genre from query
+            let genre = 'fiction'; // default
+            
+            if (query.includes('non-fiction') || query.includes('nonfiction')) {
+                genre = 'nonFiction';
+            } else if (query.includes('self-help') || query.includes('self help')) {
+                genre = 'selfHelp';
+            } else if (query.includes('classic')) {
+                genre = 'classics';
+            } else if (query.includes('fiction') || query.includes('novel') || query.includes('story')) {
+                genre = 'fiction';
+            }
+            
+            // Get user's reading history to avoid recommending books they've already read
+            const userBookTitles = books.map(book => book.title.toLowerCase());
+            const availableBooks = aiKnowledgeBase.bookRecommendations[genre].filter(
+                book => !userBookTitles.includes(book.title.toLowerCase())
+            );
+            
+            if (availableBooks.length === 0) {
+                // If all books in this genre have been read, suggest from another genre
+                const allGenres = Object.keys(aiKnowledgeBase.bookRecommendations);
+                for (let g of allGenres) {
+                    if (g !== genre) {
+                        const altBooks = aiKnowledgeBase.bookRecommendations[g].filter(
+                            book => !userBookTitles.includes(book.title.toLowerCase())
+                        );
+                        if (altBooks.length > 0) {
+                            const book = altBooks[Math.floor(Math.random() * altBooks.length)];
+                            return `Since you've read many ${genre} books, how about trying "${book.title}" by ${book.author}? It's a ${g} book about ${book.description}.`;
+                        }
+                    }
+                }
+                return "I'd love to recommend a book, but it seems you've read all the books in my recommendation database! You're quite the voracious reader. Maybe try exploring new genres or authors on your own?";
+            }
+            
+            const book = availableBooks[Math.floor(Math.random() * availableBooks.length)];
+            return `I recommend "${book.title}" by ${book.author}. ${book.description}. Would you like me to add it to your reading list?`;
+        }
+        
+        function getChallengeResponse() {
+            // Check when we last gave a challenge
+            const today = new Date().toISOString().split('T')[0];
+            if (aiContext.lastChallengeDate === today) {
+                return "I already gave you a challenge today! How about focusing on that one first? If you've completed it, let me know and I'll give you another!";
+            }
+            
+            const challenge = aiKnowledgeBase.readingChallenges[Math.floor(Math.random() * aiKnowledgeBase.readingChallenges.length)];
+            aiContext.lastChallengeDate = today;
+            saveAIContext();
+            
+            return `Here's a reading challenge for you: ${challenge.title} - ${challenge.description}. This is a ${challenge.difficulty} level challenge that should take about ${challenge.duration} day(s). Good luck!`;
+        }
+        
+        function getReadingTip() {
+            const tip = aiKnowledgeBase.readingTips[Math.floor(Math.random() * aiKnowledgeBase.readingTips.length)];
+            return `Here's a reading tip for you: ${tip}`;
+        }
+        
+        function getStatisticsResponse() {
+            const totalReadingTime = sessions.reduce((total, session) => total + session.duration, 0);
+            const totalHours = (totalReadingTime / 3600000).toFixed(1);
+            const completedBooks = books.filter(book => book.status === 'completed').length;
+            const totalPages = books.reduce((total, book) => total + (book.totalPages || 0), 0);
+            const pagesRead = books.reduce((total, book) => total + (book.currentPage || 0), 0);
+            
+            const stats = [
+                `You've read for ${totalHours} hours across ${sessions.length} sessions.`,
+                `You've completed ${completedBooks} books${totalPages > 0 ? ` and read ${pagesRead} out of ${totalPages} total pages` : ''}.`,
+                `Your current reading streak is ${readingStreak} days.`,
+                `Your longest reading session was ${Math.floor(Math.max(...sessions.map(s => s.duration)) / 60000)} minutes.`
+            ];
+            
+            return `Here are your reading statistics:\n\n${stats.join('\n')}\n\nKeep up the great work!`;
+        }
+        
+        function getMotivationalQuote() {
+            return aiKnowledgeBase.motivationalQuotes[Math.floor(Math.random() * aiKnowledgeBase.motivationalQuotes.length)];
+        }
+        
+        function getHelpResponse() {
+            return `I can help you with:\n\n• Tracking your reading goals and progress\n• Recommending books based on your interests\n• Providing reading challenges to keep you motivated\n• Sharing reading tips and strategies\n• Giving you motivational quotes\n• Analyzing your reading statistics\n\nJust ask me anything about your reading habits!`;
+        }
+        
+        function getContextualResponse(message) {
+            // Try to understand the context based on previous messages
+            if (aiConversationHistory.length > 1) {
+                const lastUserMessage = aiConversationHistory[aiConversationHistory.length - 2];
+                if (lastUserMessage.role === 'user') {
+                    // Check if this is a follow-up question
+                    if (lastUserMessage.content.toLowerCase().includes('book') && 
+                        (message.toLowerCase().includes('more') || message.toLowerCase().includes('another'))) {
+                        return getBookRecommendation(message);
+                    }
+                    
+                    if (lastUserMessage.content.toLowerCase().includes('challenge') && 
+                        (message.toLowerCase().includes('more') || message.toLowerCase().includes('another'))) {
+                        return getChallengeResponse();
+                    }
+                }
+            }
+            
+            // Default contextual responses
+            const contextualResponses = [
+                "I'm not sure I understand. Could you rephrase that?",
+                "I'm here to help with your reading journey. Could you ask me about your goals, book recommendations, or reading tips?",
+                "I specialize in reading-related questions. Try asking me about your progress, book suggestions, or reading challenges!",
+                "Hmm, I'm not sure how to respond to that. I'm best at helping with reading goals, book recommendations, and reading strategies."
+            ];
+            
+            return contextualResponses[Math.floor(Math.random() * contextualResponses.length)];
+        }
+        
+        function saveAIContext() {
+            localStorage.setItem(`aiContext_${currentUser.username}`, JSON.stringify(aiContext));
+        }
+        
+        function sendContextualNotification() {
+            const today = new Date().toISOString().split('T')[0];
+            const todaySessions = sessions.filter(session => session.date === today);
+            const todayTotalTime = todaySessions.reduce((total, session) => total + session.duration, 0);
+            const todayMinutes = Math.floor(todayTotalTime / 60000);
+            const dailyGoal = currentUser.preferences.dailyGoal || 60;
+            
+            // Don't send notifications too frequently
+            if (Date.now() - lastNotificationTime < 1800000) { // 30 minutes
+                return;
+            }
+            
+            let notification = null;
+            
+            // Send reminder if user hasn't read much today
+            if (todayMinutes < dailyGoal * 0.3 && todaySessions.length === 0) {
+                notification = {
+                    title: "Reading Reminder",
+                    message: "It's a great day for reading! Your books are waiting for you."
+                };
+            }
+            // Send encouragement if user is making progress
+            else if (todayMinutes >= dailyGoal * 0.3 && todayMinutes < dailyGoal * 0.7) {
+                notification = {
+                    title: "Great Progress!",
+                    message: `You're ${Math.round((todayMinutes / dailyGoal) * 100)}% to your daily goal. Keep going!`
+                };
+            }
+            // Send congratulations if user is close to goal
+            else if (todayMinutes >= dailyGoal * 0.7 && todayMinutes < dailyGoal) {
+                notification = {
+                    title: "Almost There!",
+                    message: `You're so close to your daily goal! Just ${dailyGoal - todayMinutes} more minutes.`
+                };
+            }
+            // Send streak reminder if user has a streak going
+            else if (readingStreak > 3) {
+                notification = {
+                    title: "Streak Alert!",
+                    message: `You're on a ${readingStreak}-day reading streak! Don't break the chain.`
+                };
+            }
+            
+            if (notification) {
+                showNotification(notification.title, notification.message);
+                lastNotificationTime = Date.now();
+            }
+        }
+        
+        function showNotification(title, message) {
+            const container = document.getElementById('notificationContainer');
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            
+            notification.innerHTML = `
+                <div class="notification-icon">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="notification-content">
+                    <div class="notification-title">${title}</div>
+                </div>
+                <button class="notification-close">&times;</button>
+            `;
+            
+            // Add message to content
+            const messageEl = document.createElement('div');
+            messageEl.className = 'notification-message';
+            messageEl.textContent = message;
+            notification.querySelector('.notification-content').appendChild(messageEl);
+            
+            // Add close functionality
+            notification.querySelector('.notification-close').addEventListener('click', () => {
+                notification.remove();
+            });
+            
+            // Auto-remove after 10 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 10000);
+            
+            container.appendChild(notification);
+        }
+        
+        function calculateReadingStreak() {
+            if (sessions.length === 0) {
+                readingStreak = 0;
+                return;
+            }
+            
+            // Sort sessions by date
+            const sortedSessions = [...sessions].sort((a, b) => new Date(a.date) - new Date(b.date));
+            const lastSessionDate = new Date(sortedSessions[sortedSessions.length - 1].date);
+            const today = new Date();
+            
+            // Reset streak if last session was more than 2 days ago
+            const daysSinceLastSession = Math.floor((today - lastSessionDate) / (1000 * 60 * 60 * 24));
+            
+            if (daysSinceLastSession > 1) {
+                readingStreak = 0;
+            } else {
+                // Calculate consecutive days with reading sessions
+                let streak = 1;
+                let currentDate = new Date(lastSessionDate);
+                
+                for (let i = sortedSessions.length - 2; i >= 0; i--) {
+                    const sessionDate = new Date(sortedSessions[i].date);
+                    const diffDays = Math.floor((currentDate - sessionDate) / (1000 * 60 * 60 * 24));
+                    
+                    if (diffDays === 1) {
+                        streak++;
+                        currentDate = sessionDate;
+                    } else if (diffDays > 1) {
+                        break;
+                    }
+                }
+                
+                readingStreak = streak;
+            }
+            
+            // Update streak display
+            document.getElementById('currentStreak').textContent = readingStreak;
+        }
+        
+        function checkForNotifications() {
+            const now = Date.now();
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Don't send notifications too frequently
+            if (now - lastNotificationTime < 1800000) { // 30 minutes
+                return;
+            }
+            
+            // Check if user has read today
+            const todaySessions = sessions.filter(session => session.date === today);
+            const todayTotalTime = todaySessions.reduce((total, session) => total + session.duration, 0);
+            const todayMinutes = Math.floor(todayTotalTime / 60000);
+            const dailyGoal = currentUser.preferences.dailyGoal || 60;
+            
+            // Send reminder if user hasn't read much today
+            if (todayMinutes < dailyGoal * 0.5) {
+                sendContextualNotification();
+                lastNotificationTime = now;
+            }
+            
+            // Send goal progress notification if user is close to goal
+            if (todayMinutes >= dailyGoal * 0.7 && todayMinutes < dailyGoal) {
+                sendContextualNotification();
+                lastNotificationTime = now;
+            }
+        }
+        
+        function sendMotivationalNotification(type) {
+            const messages = {
+                achievement: [
+                    "Great job on completing your reading session! Every minute counts toward your goals.",
+                    "Well done! You're building a fantastic reading habit that will benefit you for years to come.",
+                    "Congratulations on another reading session! Your consistency is inspiring."
+                ],
+                milestone: [
+                    "You've reached a new milestone! Your dedication to reading is truly impressive.",
+                    "Milestone achieved! Your reading journey is progressing beautifully.",
+                    "Congratulations on hitting this milestone! Your commitment to reading is paying off."
+                ]
+            };
+            
+            const messageList = messages[type] || messages.achievement;
+            const message = messageList[Math.floor(Math.random() * messageList.length)];
+            
+            showNotification("Reading Achievement", message);
+        }
+        
+        // Initialize the app when the page loads
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
